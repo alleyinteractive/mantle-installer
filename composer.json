@@ -14,6 +14,7 @@
         "symfony/process": "^5.1"
     },
     "require-dev": {
+        "alley/alley-coding-standards": "dev-master",
         "phpunit/phpunit": "^7"
     },
     "config": {
@@ -24,9 +25,18 @@
             "src/class-install-command.php"
         ]
     },
+    "repositories": [
+        {
+            "type": "git",
+            "url": "https://github.com/alleyinteractive/Alley-Coding-Standards"
+        }
+    ],
     "minimum-stability": "dev",
     "prefer-stable": true,
     "bin": [
         "bin/mantle"
-    ]
+    ],
+    "scripts": {
+        "phpcs": "phpcs --standard=./phpcs.xml ."
+    }
 }

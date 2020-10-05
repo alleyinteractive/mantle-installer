@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<ruleset>
+	<description>alleyinteractive/mantle-installer</description>
+	<arg value="ps" />
+	<rule ref="Alley-Coding-Standards" />
+</ruleset>
