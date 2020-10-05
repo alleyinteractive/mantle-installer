@@ -36,5 +36,5 @@ install:
   - composer install -n
 
 script:
-	- composer run phpcs
-	- composer run phpunit
+  - composer run phpcs
+  - composer run phpunit
