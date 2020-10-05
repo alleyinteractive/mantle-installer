@@ -4,9 +4,6 @@ sudo: false
 
 language: php
 
-services:
-  - mysql
-
 notifications:
   email: false
 
@@ -34,7 +31,8 @@ before_install:
 
 install:
   - composer install -n
+  - chmod 755 tests/output
 
 script:
-	- composer run phpcs
-	- composer run phpunit
+  - composer run phpcs
+  - composer run phpunit

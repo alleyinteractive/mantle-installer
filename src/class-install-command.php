@@ -234,7 +234,7 @@ class Install_Command extends Command {
 		$composer = $this->find_composer();
 		$commands = [
 			$composer . " create-project alleyinteractive/mantle-site {$mantle_dir} --remove-vcs --stability=dev --no-interaction "
-			. '--repository="{\"url\": \"https://github.com/alleyinteractive/mantle-site.git\", \"type\": \"vcs\"}"',
+			. '--repository="{\"url\": \"https://github.com/alleyinteractive/mantle.git\", \"type\": \"vcs\"}"',
 		];
 
 		$output->writeln( 'Installing Mantle...' );
