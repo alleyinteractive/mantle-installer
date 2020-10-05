@@ -34,5 +34,5 @@ install:
   - chmod 755 tests/output
 
 script:
-  - composer run phpcs
+  - ./vendor/bin/phpcs --standard=./phpcs.xml .
   - composer run phpunit
