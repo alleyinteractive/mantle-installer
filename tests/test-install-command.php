@@ -5,6 +5,7 @@ use Mantle\Installer\Console\Install_Command;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
+use Throwable;
 
 class Test_Install_Command extends TestCase {
 	public function test_install_wordpress() {
@@ -18,15 +19,20 @@ class Test_Install_Command extends TestCase {
 
 		$tester = $this->get_tester();
 
-		$status_code = $tester->execute(
-			[
-				'name' => [ 'new-site' ],
-			],
-			[
-				'i',
-				'f',
-			]
-		);
+		try {
+			$status_code = $tester->execute(
+				[
+					'name' => [ 'new-site' ],
+				],
+				[
+					'i',
+					'f',
+				]
+			);
+		} catch ( Throwable $e ) {
+			echo $tester->getDisplay( true );
+			throw $e;
+		}
 
 		$this->assertEquals( 0, $status_code );
 		$this->assertDirectoryExists( "{$output}/new-site" );
