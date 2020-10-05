@@ -162,6 +162,11 @@ class Install_Command extends Command {
 			return '"' . PHP_BINARY . '" ' . $path;
 		}
 
+		$vendor_wp_cli = __DIR__ . '/../vendor/wp-cli/wp-cli/bin/wp';
+		if ( file_exists( $vendor_wp_cli ) ) {
+			return $vendor_wp_cli;
+		}
+
 		return 'wp';
 	}
 

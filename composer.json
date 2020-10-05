@@ -11,7 +11,9 @@
     "require": {
         "php": "^7.3",
         "symfony/console": "^5.1",
-        "symfony/process": "^5.1"
+        "symfony/process": "^5.1",
+        "wp-cli/core-command": "^2.0",
+        "wp-cli/wp-cli": "^2.4"
     },
     "require-dev": {
         "alley/alley-coding-standards": "dev-master",
@@ -37,6 +39,7 @@
         "bin/mantle"
     ],
     "scripts": {
-        "phpcs": "phpcs --standard=./phpcs.xml ."
+        "phpcs": "phpcs --standard=./phpcs.xml .",
+        "phpunit": "phpunit"
     }
 }
