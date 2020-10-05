@@ -11,13 +11,13 @@
     "require": {
         "php": "^7.3",
         "symfony/console": "^5.1",
-        "symfony/process": "^5.1",
-        "wp-cli/core-command": "^2.0",
-        "wp-cli/wp-cli": "^2.4"
+        "symfony/process": "^5.1"
     },
     "require-dev": {
         "alley/alley-coding-standards": "dev-master",
-        "phpunit/phpunit": "^7"
+		"phpunit/phpunit": "^7",
+		"wp-cli/core-command": "^2.0",
+        "wp-cli/wp-cli": "^2.4"
     },
     "config": {
         "sort-packages": true
