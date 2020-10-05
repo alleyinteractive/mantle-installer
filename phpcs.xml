@@ -4,5 +4,5 @@
 	<arg value="ps" />
 	<exclude-pattern>tests/</exclude-pattern>
 
-	<rule ref="Alley-Coding-Standards" />
+	<rule ref="vendor/alley/alley-coding-standards" />
 </ruleset>

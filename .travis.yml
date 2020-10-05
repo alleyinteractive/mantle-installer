@@ -34,7 +34,5 @@ install:
   - chmod 755 tests/output
 
 script:
-  - |
-    ./vendor/bin/phpcs --config-set installed_paths ../../alley,../../wp-coding-standards/wpcs,../../sirbrillig/phpcs-variable-analysis,../../automattic/vipwpcs
-    ./vendor/bin/phpcs --standard=./phpcs.xml .
+  - composer run phpcs
   - composer run phpunit
