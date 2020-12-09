@@ -233,7 +233,7 @@ class Install_Command extends Command {
 
 		$composer = $this->find_composer();
 		$commands = [
-			$composer . " create-project alleyinteractive/mantle {$mantle_dir} --remove-vcs --stability=dev --no-interaction",
+			$composer . " create-project alleyinteractive/mantle {$mantle_dir} --remove-vcs --stability=dev --no-interaction --no-scripts",
 			"rm -rf {$mantle_dir}/docs",
 		];
 
