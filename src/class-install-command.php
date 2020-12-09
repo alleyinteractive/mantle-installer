@@ -164,7 +164,7 @@ class Install_Command extends Command {
 
 		$paths = [
 			__DIR__ . '/../vendor/wp-cli/wp-cli/bin/wp',
-			__DIR__ . '/../../../vendor/wp-cli/wp-cli/bin/wp',
+			__DIR__ . '/../../../wp-cli/wp-cli/bin/wp',
 		];
 
 		foreach ( $paths as $path ) {
