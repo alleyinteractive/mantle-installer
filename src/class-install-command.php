@@ -246,7 +246,7 @@ class Install_Command extends Command {
 		];
 
 		// Setup the application for local development on the framework.
-		if ( $input->getOption('setup-dev') ) {
+		if ( $input->getOption( 'setup-dev' ) ) {
 			if ( is_dir( $framework_dir ) && file_exists( "{$framework_dir}/composer.json" ) ) {
 				throw new RuntimeException( "Mantle Framework is already installed: [{$framework_dir}'" );
 			}
@@ -270,7 +270,7 @@ class Install_Command extends Command {
 
 		$output->writeln( "Mantle installed successfully at <fg=yellow>{$mantle_dir}</>." );
 
-		if ( $input->getOption('setup-dev') ) {
+		if ( $input->getOption( 'setup-dev' ) ) {
 			$output->writeln( "Mantle Framework installed successfully at <fg=yellow>{$framework_dir}</>." );
 		}
 
