@@ -12,7 +12,6 @@ jobs:
       fail-fast: true
       matrix:
         php: [7.3, 7.4]
-
     name: PHP ${{ matrix.php }}
     steps:
       - name: Get Composer cache directory
