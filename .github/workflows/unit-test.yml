@@ -41,4 +41,5 @@ jobs:
           timeout_minutes: 5
           max_attempts: 5
           command: composer install
-      - uses: php-actions/phpunit@v2
+      - name: Run phpcs
+        run: composer run phpunit
