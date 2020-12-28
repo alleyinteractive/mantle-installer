@@ -31,7 +31,8 @@ class Install_Command extends Command {
 			->addOption( 'dev', null, InputOption::VALUE_NONE, 'Installs the latest "development" release' )
 			->addOption( 'force', 'f', InputOption::VALUE_NONE, 'Install even if the directory already exists' )
 			->addOption( 'install', 'i', InputOption::VALUE_NONE, 'Install WordPress in the current location if it doesn\'t exist.' )
-			->addOption( 'no-must-use', 'no-mu', InputOption::VALUE_OPTIONAL, 'Don\'t load Mantle as a must-use plugin.', false );
+			->addOption( 'no-must-use', 'no-mu', InputOption::VALUE_OPTIONAL, 'Don\'t load Mantle as a must-use plugin.', false )
+			->addOption( 'setup-dev', null, InputOption::VALUE_NONE, 'Setup mantle for development on the framework.' );
 	}
 
 	/**
@@ -96,7 +97,7 @@ class Install_Command extends Command {
 
 		// Bail if the folder already exists.
 		if ( $name && is_dir( $name ) && ! $input->getOption( 'force' ) ) {
-			$style->error( 'Directory already exists: ' . $abspath );
+			$style->error( "Directory already exists: [{$abspath}] Use --force to override." );
 			return null;
 		}
 
@@ -229,8 +230,9 @@ class Install_Command extends Command {
 	protected function install_mantle( string $dir, InputInterface $input, OutputInterface $output ) {
 		$wp_content = $dir . '/wp-content';
 
-		$name       = $input->getArgument( 'name' )[0] ?? 'mantle';
-		$mantle_dir = "{$wp_content}/plugins/{$name}";
+		$name          = $input->getArgument( 'name' )[0] ?? 'mantle';
+		$mantle_dir    = "{$wp_content}/plugins/{$name}";
+		$framework_dir = "{$wp_content}/plugins/{$name}-framework";
 
 		// Check if Mantle exists at the current location.
 		if ( is_dir( $mantle_dir ) && file_exists( $mantle_dir . '/composer.json' ) ) {
@@ -243,6 +245,21 @@ class Install_Command extends Command {
 			"rm -rf {$mantle_dir}/docs",
 		];
 
+		// Setup the application for local development on the framework.
+		if ( $input->getOption('setup-dev') ) {
+			if ( is_dir( $framework_dir ) && file_exists( "{$framework_dir}/composer.json" ) ) {
+				throw new RuntimeException( "Mantle Framework is already installed: [{$framework_dir}'" );
+			}
+
+			$commands = [
+				"git clone git@github.com:alleyinteractive/mantle-framework.git {$framework_dir}",
+				"cd {$framework_dir} && composer install",
+				"git clone git@github.com:alleyinteractive/mantle.git {$mantle_dir}",
+				"cd {$mantle_dir} && composer config repositories.mantle-framework '{\"type\": \"path\", \"url\": \"../{$name}-framework\", \"options\": {\"symlink\": true}}' --file composer.json",
+				"cd {$mantle_dir} && composer install --no-scripts",
+			];
+		}
+
 		$output->writeln( 'Installing Mantle...' );
 
 		$process = $this->run_commands( $commands, $input, $output );
@@ -252,6 +269,10 @@ class Install_Command extends Command {
 		}
 
 		$output->writeln( "Mantle installed successfully at <fg=yellow>{$mantle_dir}</>." );
+
+		if ( $input->getOption('setup-dev') ) {
+			$output->writeln( "Mantle Framework installed successfully at <fg=yellow>{$framework_dir}</>." );
+		}
 
 		// Add Mantle as a must-use plugin.
 		if ( false === $input->getOption( 'no-must-use' ) ) {
