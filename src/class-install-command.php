@@ -99,7 +99,7 @@ class Install_Command extends Command {
 			is_dir( $abspath . '/wp/' ) &&
 			file_exists( $abspath . '/wp/wp-settings.php' )
 		) {
-			$output->writeln( "Using [<pg=yellow>{$abspath}</fg=yellow>] as the WordPress installation." );
+			$output->writeln( "Using [<fg=yellow>{$abspath}/wp/</fg=yellow>] as the WordPress installation, and [<fg=yellow>{$abspath}/wp-content/</fg=yellow>] as the WP Content directory." );
 			return $abspath;
 		}
 
