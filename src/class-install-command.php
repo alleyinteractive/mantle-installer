@@ -120,11 +120,11 @@ class Install_Command extends Command {
 					throw new RuntimeException( 'Directory not found.' );
 				}
 
-				if ( ! file_exists( $dir . ' /wp-settings.php' ) ) {
+				if ( ! file_exists( $dir . '/wp-settings.php' ) ) {
 					throw new RuntimeException( 'Invalid WordPress installation.' );
 				}
 
-				return true;
+				return $dir;
 			}
 		);
 	}
