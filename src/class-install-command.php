@@ -54,6 +54,12 @@ class Install_Command extends Command {
  |_|  |_|\__,_|_| |_|\__|_|\___|</> \n\n"
 		);
 
+		if ( $this->check_if_hiring() ) {
+			$output->write(
+				"Alley is hiring! Apply today at <href=https://alley.co/careers/>https://alley.co/careers/</>. \n\n"
+			);
+		}
+
 		// Determine if we're in a WordPress project already.
 		$wordpress_root = $this->get_wordpress_root( $input, $output );
 
@@ -127,7 +133,7 @@ class Install_Command extends Command {
 			null,
 			/**
 			 * Callback function that handles validating the manually defined WordPress installation directory.
-			 * 
+			 *
 			 * @param string $dir The full path to the WordPress directory, as defined by the user.
 			 * @return string $dir The path as passed by the user, after passing validation.
 			 */
@@ -339,5 +345,40 @@ if ( function_exists( 'wpcom_vip_load_plugin' ) ) {
 	require_once WP_CONTENT_DIR . '/plugins/$plugin_name/mantle.php';
 }
 EOT;
+	}
+
+	/**
+	 * Check if Alley is hiring and throw a prompt.
+	 *
+	 * @return boolean
+	 */
+	protected function check_if_hiring(): bool {
+		try {
+			$ch = curl_init();
+			curl_setopt( $ch, CURLOPT_URL, 'https://careers.alley.co/wp-json/wp/v2/job/' );
+			curl_setopt( $ch, CURLOPT_RETURNTRANSFER, 1 );
+			curl_setopt( $ch, CURLOPT_TIMEOUT, 3 );
+
+			$feed = json_decode( curl_exec( $ch ), true );
+
+			curl_close( $ch );
+		} catch ( \Throwable $e ) {
+			return false;
+		}
+
+		if ( empty( $feed ) ) {
+			return false;
+		}
+
+		// Check if there is a developer posting in the feed.
+		foreach ( $feed as $posting ) {
+			$title = strtolower( $posting['title']['rendered'] ?? '' );
+
+			if ( false !== strpos( $title, 'developer' ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 }
