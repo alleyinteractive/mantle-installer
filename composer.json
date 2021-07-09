@@ -13,7 +13,7 @@
         "symfony/console": "^4.0 || ^5.0",
         "symfony/process": "^4.2 || ^5.0",
         "wp-cli/core-command": "^2.0",
-        "wp-cli/wp-cli": "^2.4"
+        "wp-cli/wp-cli": "^2.5"
     },
     "require-dev": {
         "alleyinteractive/alley-coding-standards": "^0.3.0",
