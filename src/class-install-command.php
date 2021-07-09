@@ -115,16 +115,22 @@ class Install_Command extends Command {
 		return $style->ask(
 			'Please specify your WordPress installation:',
 			null,
+			/**
+			 * Callback function that handles validating the manually defined WordPress installation directory.
+			 * 
+			 * @param string $dir The full path to the WordPress directory, as defined by the user.
+			 * @return string $dir The path as passed by the user, after passing validation.
+			 */
 			function ( $dir ) {
 				if ( ! is_dir( $dir ) ) {
 					throw new RuntimeException( 'Directory not found.' );
 				}
 
-				if ( ! file_exists( $dir . ' /wp-settings.php' ) ) {
+				if ( ! file_exists( $dir . '/wp-settings.php' ) ) {
 					throw new RuntimeException( 'Invalid WordPress installation.' );
 				}
 
-				return true;
+				return $dir;
 			}
 		);
 	}
