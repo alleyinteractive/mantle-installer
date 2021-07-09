@@ -374,7 +374,7 @@ EOT;
 		foreach ( $feed as $posting ) {
 			$title = strtolower( $posting['title']['rendered'] ?? '' );
 
-			if ( 0 !== strpos( $title, 'developer' ) ) {
+			if ( false !== strpos( $title, 'developer' ) ) {
 				return true;
 			}
 		}
