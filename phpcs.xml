@@ -4,5 +4,7 @@
 	<arg value="ps" />
 	<exclude-pattern>tests/</exclude-pattern>
 
-	<rule ref="Alley-Interactive" />
+	<rule ref="Alley-Interactive">
+		<exclude name="WordPress.WP.AlternativeFunctions" />
+	</rule>
 </ruleset>
