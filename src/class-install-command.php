@@ -93,6 +93,16 @@ class Install_Command extends Command {
 			return $abspath;
 		}
 
+		// Check if we are inside of the default Homestead WordPress environement.
+		if (
+			is_dir( $abspath . '/wp-content/' ) &&
+			is_dir( $abspath . '/wp/' ) &&
+			file_exists( $abspath . '/wp/wp-settings.php' )
+		) {
+			$output->writeln( "Using [<fg=yellow>{$abspath}/wp/</fg=yellow>] as the WordPress installation, and [<fg=yellow>{$abspath}/wp-content/</fg=yellow>] as the WP Content directory." );
+			return $abspath;
+		}
+
 		$style = new SymfonyStyle( $input, $output );
 
 		// Bail if the folder already exists.
@@ -107,7 +117,7 @@ class Install_Command extends Command {
 		}
 
 		// Ask the user if we should be installing.
-		if ( $style->confirm( "Would you like to install WordPress at [<fg=yellow>{$abspath}</>]", true ) ) {
+		if ( $style->confirm( "Would you like to install WordPress at [<fg=yellow>{$abspath}</fg=yellow>]", true ) ) {
 			$this->install_wordpress( $abspath, $input, $output );
 			return $abspath;
 		}
@@ -115,16 +125,22 @@ class Install_Command extends Command {
 		return $style->ask(
 			'Please specify your WordPress installation:',
 			null,
+			/**
+			 * Callback function that handles validating the manually defined WordPress installation directory.
+			 * 
+			 * @param string $dir The full path to the WordPress directory, as defined by the user.
+			 * @return string $dir The path as passed by the user, after passing validation.
+			 */
 			function ( $dir ) {
 				if ( ! is_dir( $dir ) ) {
 					throw new RuntimeException( 'Directory not found.' );
 				}
 
-				if ( ! file_exists( $dir . ' /wp-settings.php' ) ) {
+				if ( ! file_exists( $dir . '/wp-settings.php' ) ) {
 					throw new RuntimeException( 'Invalid WordPress installation.' );
 				}
 
-				return true;
+				return $dir;
 			}
 		);
 	}
