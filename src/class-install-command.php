@@ -28,11 +28,11 @@ class Install_Command extends Command {
 		$this->setName( 'new' )
 			->setDescription( 'Create a new Mantle application' )
 			->addArgument( 'name', InputOption::VALUE_OPTIONAL, 'Name of the folder to install WordPress in, optional.', null )
-			->addOption( 'dev', null, InputOption::VALUE_NONE, 'Installs the latest "development" release' )
 			->addOption( 'force', 'f', InputOption::VALUE_NONE, 'Install even if the directory already exists' )
 			->addOption( 'install', 'i', InputOption::VALUE_NONE, 'Install WordPress in the current location if it doesn\'t exist.' )
 			->addOption( 'no-must-use', 'no-mu', InputOption::VALUE_OPTIONAL, 'Don\'t load Mantle as a must-use plugin.', false )
-			->addOption( 'setup-dev', null, InputOption::VALUE_NONE, 'Setup mantle for development on the framework.' );
+			->addOption( 'dev', 'd', InputOption::VALUE_NONE, 'Setup mantle for development on the framework.' )
+			->addOption( 'setup-dev', null, InputOption::VALUE_NONE, '(Legacy) setup mantle for development on the framework.' );
 	}
 
 	/**
@@ -279,7 +279,7 @@ class Install_Command extends Command {
 		];
 
 		// Setup the application for local development on the framework.
-		if ( $input->getOption( 'setup-dev' ) ) {
+		if ( $input->getOption( 'dev' ) || $input->getOption( 'setup-dev' ) ) {
 			if ( is_dir( $framework_dir ) && file_exists( "{$framework_dir}/composer.json" ) ) {
 				throw new RuntimeException( "Mantle Framework is already installed: [{$framework_dir}'" );
 			}
@@ -289,6 +289,8 @@ class Install_Command extends Command {
 				"cd {$framework_dir} && composer install",
 				"git clone git@github.com:alleyinteractive/mantle.git {$mantle_dir}",
 				"cd {$mantle_dir} && composer config repositories.mantle-framework '{\"type\": \"path\", \"url\": \"../{$name}-framework\", \"options\": {\"symlink\": true}}' --file composer.json",
+				// Update Mantle to accept any version of these dependencies.
+				"cd {$mantle_dir} && composer require alleyinteractive/mantle-framework:\"*\" alleyinteractive/composer-wordpress-autoloader:\"*\" --no-update --no-scripts",
 				"cd {$mantle_dir} && composer install --no-scripts",
 			];
 		}
