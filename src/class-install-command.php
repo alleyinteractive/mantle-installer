@@ -285,7 +285,8 @@ class Install_Command extends Command {
 			}
 
 			$commands = [
-				"git clone git@github.com:alleyinteractive/mantle-framework.git {$framework_dir}",
+				"git clone https://github.com/alleyinteractive/mantle-framework.git {$framework_dir}",
+				"cd {$framework_dir} && git remote set-url origin git@github.com:alleyinteractive/mantle-framework.git",
 				"cd {$framework_dir} && composer install",
 				"git clone git@github.com:alleyinteractive/mantle.git {$mantle_dir}",
 				"cd {$mantle_dir} && composer config repositories.mantle-framework '{\"type\": \"path\", \"url\": \"../{$name}-framework\", \"options\": {\"symlink\": true}}' --file composer.json",
