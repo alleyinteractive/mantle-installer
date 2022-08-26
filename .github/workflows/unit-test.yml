@@ -2,19 +2,51 @@ name: Testing Suite
 
 on:
   push:
-    branches:
-      - main
   pull_request:
   schedule:
     - cron: '0 0 * * *'
 
 jobs:
-  php-tests:
+  tests:
+    runs-on: ubuntu-latest
     strategy:
+      fail-fast: true
       matrix:
         php: [7.4, 8.0]
-        wordpress: ["latest"]
-    uses: alleyinteractive/.github/.github/workflows/php-tests.yml@main
-    with:
-      php: ${{ matrix.php }}
-      wordpress: ${{ matrix.wordpress }}
+    name: PHP ${{ matrix.php }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+      - name: Reconfigure git to use HTTP authentication
+        run: >
+          git config --global url."https://github.com/".insteadOf
+          ssh://git@github.com/
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "::set-output name=dir::$(composer config cache-files-dir)"
+      - name: Set up Composer caching
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-composer-dependencies
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ matrix.php }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ matrix.php }}-composer-
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, gd
+          tools: composer:v2
+          coverage: none
+      - name: Install dependencies
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 5
+          max_attempts: 5
+          command: composer install
+      - name: Run phpunit
+        run: composer run phpunit
