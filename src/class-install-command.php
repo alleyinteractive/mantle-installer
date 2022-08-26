@@ -2,7 +2,7 @@
 /**
  * Install_Command class file.
  *
- * phpcs:disable WordPress.NamingConventions.PrefixAllGlobals
+ * phpcs:disable WordPress.NamingConventions.PrefixAllGlobals, Squiz.PHP.DisallowMultipleAssignments.FoundInControlStructure
  *
  * @package Mantle
  */
@@ -179,21 +179,27 @@ class Install_Command extends Command {
 	 * @return string
 	 */
 	protected function find_wp_cli(): string {
+		// Check if the wp-cli path was set in an environment variable.
+		if ( $wp_cli = getenv( 'WP_CLI_PATH' ) ) {
+			return $wp_cli;
+		}
+
 		$path = getcwd() . '/wp-cli.phar';
 
 		if ( file_exists( $path ) ) {
 			return '"' . PHP_BINARY . '" ' . $path;
 		}
 
-		$paths = [
-			__DIR__ . '/../vendor/wp-cli/wp-cli/bin/wp',
-			__DIR__ . '/../../../wp-cli/wp-cli/bin/wp',
-		];
+		// Check if wp-cli is installed globally.
+		$path = exec( 'which wp' ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_exec
 
-		foreach ( $paths as $path ) {
-			if ( file_exists( $path ) ) {
-				return $path;
-			}
+		if ( $path ) {
+			return $path;
+		}
+
+		// Fallback to the one installed with the package.
+		if ( file_exists( __DIR__ . '/../bin/wp-cli.phar' ) ) {
+			return '"' . PHP_BINARY . '" ' . __DIR__ . '/../bin/wp-cli.phar';
 		}
 
 		return 'wp';
@@ -205,6 +211,11 @@ class Install_Command extends Command {
 	 * @return string
 	 */
 	protected function find_composer(): string {
+		// Check if the composer path was set in an environment variable.
+		if ( $composer = getenv( 'COMPOSER_PATH' ) ) {
+			return $composer;
+		}
+
 		$composer_path = getcwd() . '/composer.phar';
 
 		if ( file_exists( $composer_path ) ) {
