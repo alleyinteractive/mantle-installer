@@ -6,5 +6,7 @@
 
 	<rule ref="Alley-Interactive">
 		<exclude name="WordPress.WP.AlternativeFunctions" />
+		<exclude name="Squiz.PHP.DisallowMultipleAssignments.FoundInControlStructure" />
+		<exclude name="WordPress.NamingConventions.PrefixAllGlobals" />
 	</rule>
 </ruleset>

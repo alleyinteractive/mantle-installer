@@ -8,12 +8,22 @@ use Symfony\Component\Console\Tester\CommandTester;
 use Throwable;
 
 class Test_Install_Command extends TestCase {
-	public function test_install_wordpress() {
+	protected function setUp(): void {
+		parent::setUp();
+
 		$output = __DIR__ . '/output';
 
 		if ( is_dir( $output . '/new-site' ) ) {
 			exec( 'rm -rf ' . $output . '/new-site' );
 		}
+
+		if ( is_dir( $output . '/new-site-dev' ) ) {
+			exec( 'rm -rf ' . $output . '/new-site-dev' );
+		}
+	}
+
+	public function test_install_wordpress() {
+		$output = __DIR__ . '/output';
 
 		chdir( $output );
 
@@ -43,10 +53,6 @@ class Test_Install_Command extends TestCase {
 
 	public function test_install_wordpress_dev() {
 		$output = __DIR__ . '/output';
-
-		if ( is_dir( $output . '/new-site-dev' ) ) {
-			exec( 'rm -rf ' . $output . '/new-site-dev' );
-		}
 
 		chdir( $output );
 

@@ -2,8 +2,6 @@
 /**
  * Install_Command class file.
  *
- * phpcs:disable WordPress.NamingConventions.PrefixAllGlobals, Squiz.PHP.DisallowMultipleAssignments.FoundInControlStructure
- *
  * @package Mantle
  */
 
