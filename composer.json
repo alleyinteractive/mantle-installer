@@ -11,9 +11,7 @@
   "require": {
     "php": "^7.4|^8.0",
     "symfony/console": "^5.0",
-    "symfony/process": "^5.0",
-    "wp-cli/core-command": "^2.0",
-    "wp-cli/wp-cli": "^2.4"
+    "symfony/process": "^5.0"
   },
   "require-dev": {
     "alleyinteractive/alley-coding-standards": "^0.3",
@@ -37,6 +35,10 @@
   ],
   "scripts": {
     "phpcs": "phpcs --standard=./phpcs.xml .",
-    "phpunit": "phpunit"
+    "phpunit": "phpunit",
+    "test": [
+      "@phpcs",
+      "@phpunit"
+    ]
   }
 }

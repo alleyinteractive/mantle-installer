@@ -2,8 +2,6 @@
 /**
  * Install_Command class file.
  *
- * phpcs:disable WordPress.NamingConventions.PrefixAllGlobals
- *
  * @package Mantle
  */
 
@@ -28,11 +26,11 @@ class Install_Command extends Command {
 		$this->setName( 'new' )
 			->setDescription( 'Create a new Mantle application' )
 			->addArgument( 'name', InputOption::VALUE_OPTIONAL, 'Name of the folder to install WordPress in, optional.', null )
-			->addOption( 'dev', null, InputOption::VALUE_NONE, 'Installs the latest "development" release' )
 			->addOption( 'force', 'f', InputOption::VALUE_NONE, 'Install even if the directory already exists' )
 			->addOption( 'install', 'i', InputOption::VALUE_NONE, 'Install WordPress in the current location if it doesn\'t exist.' )
 			->addOption( 'no-must-use', 'no-mu', InputOption::VALUE_OPTIONAL, 'Don\'t load Mantle as a must-use plugin.', false )
-			->addOption( 'setup-dev', null, InputOption::VALUE_NONE, 'Setup mantle for development on the framework.' );
+			->addOption( 'dev', 'd', InputOption::VALUE_NONE, 'Setup mantle for development on the framework.' )
+			->addOption( 'setup-dev', null, InputOption::VALUE_NONE, '(Legacy) setup mantle for development on the framework.' );
 	}
 
 	/**
@@ -179,21 +177,27 @@ class Install_Command extends Command {
 	 * @return string
 	 */
 	protected function find_wp_cli(): string {
+		// Check if the wp-cli path was set in an environment variable.
+		if ( $wp_cli = getenv( 'WP_CLI_PATH' ) ) {
+			return $wp_cli;
+		}
+
 		$path = getcwd() . '/wp-cli.phar';
 
 		if ( file_exists( $path ) ) {
 			return '"' . PHP_BINARY . '" ' . $path;
 		}
 
-		$paths = [
-			__DIR__ . '/../vendor/wp-cli/wp-cli/bin/wp',
-			__DIR__ . '/../../../wp-cli/wp-cli/bin/wp',
-		];
+		// Check if wp-cli is installed globally.
+		$path = exec( 'which wp' ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_exec
 
-		foreach ( $paths as $path ) {
-			if ( file_exists( $path ) ) {
-				return $path;
-			}
+		if ( $path ) {
+			return $path;
+		}
+
+		// Fallback to the one installed with the package.
+		if ( file_exists( __DIR__ . '/../bin/wp-cli.phar' ) ) {
+			return '"' . PHP_BINARY . '" ' . __DIR__ . '/../bin/wp-cli.phar';
 		}
 
 		return 'wp';
@@ -205,6 +209,11 @@ class Install_Command extends Command {
 	 * @return string
 	 */
 	protected function find_composer(): string {
+		// Check if the composer path was set in an environment variable.
+		if ( $composer = getenv( 'COMPOSER_PATH' ) ) {
+			return $composer;
+		}
+
 		$composer_path = getcwd() . '/composer.phar';
 
 		if ( file_exists( $composer_path ) ) {
@@ -268,16 +277,20 @@ class Install_Command extends Command {
 		];
 
 		// Setup the application for local development on the framework.
-		if ( $input->getOption( 'setup-dev' ) ) {
+		if ( $input->getOption( 'dev' ) || $input->getOption( 'setup-dev' ) ) {
 			if ( is_dir( $framework_dir ) && file_exists( "{$framework_dir}/composer.json" ) ) {
 				throw new RuntimeException( "Mantle Framework is already installed: [{$framework_dir}'" );
 			}
 
 			$commands = [
-				"git clone git@github.com:alleyinteractive/mantle-framework.git {$framework_dir}",
+				"git clone https://github.com/alleyinteractive/mantle-framework.git {$framework_dir}",
+				"cd {$framework_dir} && git remote set-url origin git@github.com:alleyinteractive/mantle-framework.git",
 				"cd {$framework_dir} && composer install",
-				"git clone git@github.com:alleyinteractive/mantle.git {$mantle_dir}",
+				"git clone https://github.com/alleyinteractive/mantle.git {$mantle_dir}",
+				"cd {$framework_dir} && git remote set-url origin git@github.com:alleyinteractive/mantle.git",
 				"cd {$mantle_dir} && composer config repositories.mantle-framework '{\"type\": \"path\", \"url\": \"../{$name}-framework\", \"options\": {\"symlink\": true}}' --file composer.json",
+				// Update Mantle to accept any version of these dependencies.
+				"cd {$mantle_dir} && composer require alleyinteractive/mantle-framework:\"*\" alleyinteractive/composer-wordpress-autoloader:\"*\" --no-update --no-scripts",
 				"cd {$mantle_dir} && composer install --no-scripts",
 			];
 		}
