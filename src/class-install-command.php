@@ -287,7 +287,7 @@ class Install_Command extends Command {
 				"cd {$framework_dir} && git remote set-url origin git@github.com:alleyinteractive/mantle-framework.git",
 				"cd {$framework_dir} && composer install",
 				"git clone https://github.com/alleyinteractive/mantle.git {$mantle_dir}",
-				"cd {$framework_dir} && git remote set-url origin git@github.com:alleyinteractive/mantle.git",
+				"cd {$mantle_dir} && git remote set-url origin git@github.com:alleyinteractive/mantle.git",
 				"cd {$mantle_dir} && composer config repositories.mantle-framework '{\"type\": \"path\", \"url\": \"../{$name}-framework\", \"options\": {\"symlink\": true}}' --file composer.json",
 				// Update Mantle to accept any version of these dependencies.
 				"cd {$mantle_dir} && composer require alleyinteractive/mantle-framework:\"*\" alleyinteractive/composer-wordpress-autoloader:\"*\" --no-update --no-scripts",
