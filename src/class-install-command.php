@@ -85,16 +85,13 @@ class Install_Command extends Command {
 		$abspath = $name && '.' !== $name ? $cwd . '/' . $name : $cwd;
 
 		// Check if 'wp-content' is in the current path.
-		if ( false !== strpos( '/wp-content/', $abspath ) ) {
-			$abspath = preg_replace( '#/wp-content/.*$#', '/wp-config.php', $abspath );
-			$output->writeln( "Using [<fg=yellow>{$abspath}</fg=yellow>] as the WordPress installation." );
-			return $abspath;
-		}
+		if ( false !== strpos( $abspath, '/wp-content/' ) ) {
+			$abspath = rtrim( preg_replace( '#/wp-content/.*$#', '/', $abspath ), '/' );
 
-		// Check if a root-level file exists.
-		if ( file_exists( $abspath . '/wp-settings.php' ) ) {
-			$output->writeln( "Using [<fg=yellow>{$abspath}</fg=yellow>] as the WordPress installation." );
-			return $abspath;
+			if ( is_dir( $abspath ) && file_exists( $abspath . '/wp-settings.php' ) ) {
+				$output->writeln( "Using [<fg=yellow>{$abspath}</fg=yellow>] as the WordPress installation." );
+				return $abspath;
+			}
 		}
 
 		// Check if we are inside of the default Homestead WordPress environement.
@@ -115,13 +112,11 @@ class Install_Command extends Command {
 			return null;
 		}
 
-		if ( $input->getOption( 'install' ) ) {
-			$this->install_wordpress( $abspath, $input, $output );
-			return $abspath;
-		}
-
-		// Ask the user if we should be installing.
-		if ( $style->confirm( "Would you like to install WordPress at [<fg=yellow>{$abspath}</fg=yellow>]", true ) ) {
+		// Ask the user if we should be installing if not already specified.
+		if (
+			$input->getOption( 'install' )
+			|| $style->confirm( "Would you like to install WordPress at [<fg=yellow>{$abspath}</fg=yellow>]", true )
+		) {
 			$this->install_wordpress( $abspath, $input, $output );
 			return $abspath;
 		}
@@ -270,6 +265,11 @@ class Install_Command extends Command {
 			throw new RuntimeException( "Mantle is already installed: [{$mantle_dir}]" );
 		}
 
+		// Check if the directory is empty.
+		if ( is_dir( $mantle_dir ) && count( scandir( $mantle_dir ) ) > 2 ) {
+			throw new RuntimeException( "Directory is not empty: [{$mantle_dir}]" );
+		}
+
 		$composer = $this->find_composer();
 		$commands = [
 			$composer . " create-project alleyinteractive/mantle {$mantle_dir} --remove-vcs --stability=dev --no-interaction --no-scripts",
@@ -368,7 +368,7 @@ EOT;
 	protected function check_if_hiring(): bool {
 		try {
 			$ch = curl_init();
-			curl_setopt( $ch, CURLOPT_URL, 'https://careers.alley.co/wp-json/wp/v2/job/' );
+			curl_setopt( $ch, CURLOPT_URL, 'https://careers.alley.com/wp-json/wp/v2/job/' );
 			curl_setopt( $ch, CURLOPT_RETURNTRANSFER, 1 );
 			curl_setopt( $ch, CURLOPT_TIMEOUT, 3 );
 
