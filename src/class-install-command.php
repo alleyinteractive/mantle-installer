@@ -85,16 +85,13 @@ class Install_Command extends Command {
 		$abspath = $name && '.' !== $name ? $cwd . '/' . $name : $cwd;
 
 		// Check if 'wp-content' is in the current path.
-		if ( false !== strpos( '/wp-content/', $abspath ) ) {
-			$abspath = preg_replace( '#/wp-content/.*$#', '/wp-config.php', $abspath );
-			$output->writeln( "Using [<fg=yellow>{$abspath}</fg=yellow>] as the WordPress installation." );
-			return $abspath;
-		}
+		if ( false !== strpos( $abspath, '/wp-content/' ) ) {
+			$abspath = rtrim( preg_replace( '#/wp-content/.*$#', '/', $abspath ), '/' );
 
-		// Check if a root-level file exists.
-		if ( file_exists( $abspath . '/wp-settings.php' ) ) {
-			$output->writeln( "Using [<fg=yellow>{$abspath}</fg=yellow>] as the WordPress installation." );
-			return $abspath;
+			if ( is_dir( $abspath ) && file_exists( $abspath . '/wp-settings.php' ) ) {
+				$output->writeln( "Using [<fg=yellow>{$abspath}</fg=yellow>] as the WordPress installation." );
+				return $abspath;
+			}
 		}
 
 		// Check if we are inside of the default Homestead WordPress environement.
@@ -115,13 +112,11 @@ class Install_Command extends Command {
 			return null;
 		}
 
-		if ( $input->getOption( 'install' ) ) {
-			$this->install_wordpress( $abspath, $input, $output );
-			return $abspath;
-		}
-
-		// Ask the user if we should be installing.
-		if ( $style->confirm( "Would you like to install WordPress at [<fg=yellow>{$abspath}</fg=yellow>]", true ) ) {
+		// Ask the user if we should be installing if not already specified.
+		if (
+			$input->getOption( 'install' )
+			|| $style->confirm( "Would you like to install WordPress at [<fg=yellow>{$abspath}</fg=yellow>]", true )
+		) {
 			$this->install_wordpress( $abspath, $input, $output );
 			return $abspath;
 		}
@@ -268,6 +263,11 @@ class Install_Command extends Command {
 		// Check if Mantle exists at the current location.
 		if ( is_dir( $mantle_dir ) && file_exists( $mantle_dir . '/composer.json' ) ) {
 			throw new RuntimeException( "Mantle is already installed: [{$mantle_dir}]" );
+		}
+
+		// Check if the directory is empty.
+		if ( is_dir( $mantle_dir ) && count( scandir( $mantle_dir ) ) > 2 ) {
+			throw new RuntimeException( "Directory is not empty: [{$mantle_dir}]" );
 		}
 
 		$composer = $this->find_composer();
