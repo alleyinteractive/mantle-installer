@@ -368,7 +368,7 @@ EOT;
 	protected function check_if_hiring(): bool {
 		try {
 			$ch = curl_init();
-			curl_setopt( $ch, CURLOPT_URL, 'https://careers.alley.co/wp-json/wp/v2/job/' );
+			curl_setopt( $ch, CURLOPT_URL, 'https://careers.alley.com/wp-json/wp/v2/job/' );
 			curl_setopt( $ch, CURLOPT_RETURNTRANSFER, 1 );
 			curl_setopt( $ch, CURLOPT_TIMEOUT, 3 );
 
