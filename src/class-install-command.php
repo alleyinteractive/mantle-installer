@@ -353,7 +353,7 @@ class Install_Command extends Command {
 */
 
 if ( function_exists( 'wpcom_vip_load_plugin' ) ) {
-	wpcom_vip_load_plugin( '$plugin_name' );
+	wpcom_vip_load_plugin( '$plugin_name/mantle.php' );
 } else {
 	require_once WP_CONTENT_DIR . '/plugins/$plugin_name/mantle.php';
 }
