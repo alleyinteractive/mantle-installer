@@ -30,7 +30,7 @@ class Install_Command extends Command {
 			->addOption( 'install', 'i', InputOption::VALUE_NONE, 'Install WordPress in the current location if it doesn\'t exist.' )
 			->addOption( 'no-must-use', 'no-mu', InputOption::VALUE_OPTIONAL, 'Don\'t load Mantle as a must-use plugin.', false )
 			->addOption( 'dev', 'd', InputOption::VALUE_NONE, 'Setup mantle for development on the framework.' )
-			->addOption( 'setup-dev', null, InputOption::VALUE_NONE, '(Legacy) setup mantle for development on the framework.' );
+			->addOption( 'mantle-version', null, InputOption::VALUE_OPTIONAL, 'Version of alleyinteractive/mantle to install.', 'latest' );
 	}
 
 	/**
@@ -270,14 +270,15 @@ class Install_Command extends Command {
 			throw new RuntimeException( "Directory is not empty: [{$mantle_dir}]" );
 		}
 
+		$version = $input->getOption( 'mantle-version' ) ? ':' . $input->getOption( 'mantle-version' ) : '';
 		$composer = $this->find_composer();
 		$commands = [
-			$composer . " create-project alleyinteractive/mantle {$mantle_dir} --remove-vcs --stability=dev --no-interaction --no-scripts",
+			$composer . " create-project alleyinteractive/mantle{$version} {$mantle_dir} --remove-vcs --stability=dev --no-interaction --no-scripts",
 			"rm -rf {$mantle_dir}/docs",
 		];
 
 		// Setup the application for local development on the framework.
-		if ( $input->getOption( 'dev' ) || $input->getOption( 'setup-dev' ) ) {
+		if ( $input->getOption( 'dev' ) ) {
 			if ( is_dir( $framework_dir ) && file_exists( "{$framework_dir}/composer.json" ) ) {
 				throw new RuntimeException( "Mantle Framework is already installed: [{$framework_dir}'" );
 			}
@@ -305,7 +306,7 @@ class Install_Command extends Command {
 
 		$output->writeln( "Mantle installed successfully at <fg=yellow>{$mantle_dir}</>." );
 
-		if ( $input->getOption( 'setup-dev' ) ) {
+		if ( $input->getOption( 'dev' ) ) {
 			$output->writeln( "Mantle Framework installed successfully at <fg=yellow>{$framework_dir}</>." );
 		}
 
