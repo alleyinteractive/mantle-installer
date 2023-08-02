@@ -270,7 +270,7 @@ class Install_Command extends Command {
 			throw new RuntimeException( "Directory is not empty: [{$mantle_dir}]" );
 		}
 
-		$version = $input->getOption( 'mantle-version' ) ? ':' . $input->getOption( 'mantle-version' ) : '';
+		$version  = $input->getOption( 'mantle-version' ) ? ':' . $input->getOption( 'mantle-version' ) : '';
 		$composer = $this->find_composer();
 		$commands = [
 			$composer . " create-project alleyinteractive/mantle{$version} {$mantle_dir} --remove-vcs --stability=dev --no-interaction --no-scripts",
