@@ -8,6 +8,6 @@ if ( file_exists( __DIR__ . '/../../../autoload.php' ) ) {
 }
 
 $app = new Symfony\Component\Console\Application( 'Mantle Installer', '1.0.5' );
-$app->add( new Mantle\Installer\Console\Install_Command() );
+$app->add( new Mantle\Installer\Console\InstallCommand() );
 
 $app->run();

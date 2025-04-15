@@ -15,7 +15,8 @@
   },
   "require-dev": {
     "alleyinteractive/alley-coding-standards": "^2.0",
-    "phpunit/phpunit": "^12.0"
+    "phpunit/phpunit": "^12.0",
+    "symfony/var-dumper": "^7.0"
   },
   "minimum-stability": "dev",
   "prefer-stable": true,

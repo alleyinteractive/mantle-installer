@@ -1,6 +1,6 @@
 <?php
 /**
- * Install_Command class file.
+ * InstallCommand class file.
  *
  * @package Mantle
  */
@@ -157,6 +157,7 @@ class InstallCommand extends Command {
 	protected function install_wordpress( string $dir, InputInterface $input, OutputInterface $output ): bool {
 		$output->writeln( "Installing WordPress at <fg=yellow>{$dir}</>...\n\n" );
 
+		dd($this->find_wp_cli());
 		$process = $this->run_commands( [ $this->find_wp_cli() . ' core download --force --path=' . $dir ], $input, $output );
 
 		if ( ! $process->isSuccessful() ) {

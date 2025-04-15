@@ -22,7 +22,7 @@ class InstallCommandTest extends TestCase {
 		}
 	}
 
-	public function test_install_wordpress() {
+	public function test_install_wordpress(): void {
 		$output = __DIR__ . '/output';
 
 		chdir( $output );
@@ -51,7 +51,7 @@ class InstallCommandTest extends TestCase {
 		$this->assertFileExists( "{$output}/new-site/wp-content/mu-plugins/new-site-loader.php" );
 	}
 
-	public function test_install_wordpress_dev() {
+	public function test_install_wordpress_dev(): void {
 		$output = __DIR__ . '/output';
 
 		chdir( $output );
@@ -87,7 +87,7 @@ class InstallCommandTest extends TestCase {
 
 	protected function get_tester(): CommandTester {
 		$app = new Application( 'Mantle Installer' );
-		$app->add( new Install_Command() );
+		$app->add( new InstallCommand() );
 
 		return new CommandTester( $app->find( 'new' ) );
 	}
