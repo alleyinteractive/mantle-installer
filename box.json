@@ -1,0 +1,12 @@
+{
+  "alias": "mantle-installer.phar",
+  "check-requirements": false,
+  "chmod": "0700",
+  "exclude-composer-files": false,
+  "directories": [
+    "bin",
+    "src",
+    "vendor"
+  ],
+  "output": "build/mantle-installer.phar"
+}
