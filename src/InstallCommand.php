@@ -30,7 +30,7 @@ class InstallCommand extends Command {
 			->addOption( 'install', 'i', InputOption::VALUE_NONE, 'Install WordPress in the current location if it doesn\'t exist.' )
 			->addOption( 'no-must-use', 'no-mu', InputOption::VALUE_OPTIONAL, 'Don\'t load Mantle as a must-use plugin.', false )
 			->addOption( 'dev', 'd', InputOption::VALUE_NONE, 'Setup mantle for development on the framework.' )
-			->addOption( 'mantle-version', null, InputOption::VALUE_OPTIONAL, 'Version of alleyinteractive/mantle to install.', 'latest' );
+			->addOption( 'mantle-version', null, InputOption::VALUE_OPTIONAL, 'Version of alleyinteractive/mantle to install.' );
 	}
 
 	/**
@@ -94,7 +94,7 @@ class InstallCommand extends Command {
 			}
 		}
 
-		// Check if we are inside of the default Homestead WordPress environement.
+		// Check if we are inside of the default Homestead WordPress environment.
 		if (
 			is_dir( $abspath . '/wp-content/' ) &&
 			is_dir( $abspath . '/wp/' ) &&

@@ -8,7 +8,7 @@
     >
     <testsuites>
         <testsuite name="mantle-installer">
-			<directory suffix="Test.php">tests/</directory>
+			<file>tests/InstallCommandTest.php</file>
         </testsuite>
     </testsuites>
 </phpunit>
