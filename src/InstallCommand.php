@@ -5,7 +5,7 @@
  * @package Mantle
  */
 
-namespace Mantle\Installer\Console;
+namespace Mantle\Installer;
 
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
@@ -18,7 +18,7 @@ use Symfony\Component\Process\Process;
 /**
  * Installation Command for Mantle
  */
-class Install_Command extends Command {
+class InstallCommand extends Command {
 	/**
 	 * Configure the install command.
 	 */

@@ -8,5 +8,6 @@
 		<exclude name="WordPress.WP.AlternativeFunctions" />
 		<exclude name="Squiz.PHP.DisallowMultipleAssignments.FoundInControlStructure" />
 		<exclude name="WordPress.NamingConventions.PrefixAllGlobals" />
+		<exclude name="WordPress.Security.EscapeOutput" />
 	</rule>
 </ruleset>

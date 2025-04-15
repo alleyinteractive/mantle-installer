@@ -1,13 +1,13 @@
 <?php
-namespace Mantle\Installer\Console\Tests;
+namespace Mantle\Installer\Tests;
 
-use Mantle\Installer\Console\Install_Command;
+use Mantle\Installer\InstallCommand;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
 use Throwable;
 
-class Test_Install_Command extends TestCase {
+class InstallCommandTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 

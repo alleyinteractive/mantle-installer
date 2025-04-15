@@ -12,9 +12,29 @@ jobs:
   php-tests:
     strategy:
       matrix:
-        php: [8.0]
+        php: [8.2, 8.3, 8.4]
         wordpress: ["latest"]
     uses: alleyinteractive/.github/.github/workflows/php-tests.yml@main
     with:
       php: ${{ matrix.php }}
       wordpress: ${{ matrix.wordpress }}
+  # This required job ensures that all PR checks have passed before merging.
+  all-pr-checks-passed:
+    name: All PR checks passed
+    needs:
+      - php-tests
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check job statuses
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "One or more jobs failed"
+            exit 1
+          elif [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "One or more jobs were cancelled"
+            exit 1
+          else
+            echo "All jobs passed or were skipped"
+            exit 0
+          fi
