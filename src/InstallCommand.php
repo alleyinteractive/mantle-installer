@@ -157,7 +157,6 @@ class InstallCommand extends Command {
 	protected function install_wordpress( string $dir, InputInterface $input, OutputInterface $output ): bool {
 		$output->writeln( "Installing WordPress at <fg=yellow>{$dir}</>...\n\n" );
 
-		dd($this->find_wp_cli());
 		$process = $this->run_commands( [ $this->find_wp_cli() . ' core download --force --path=' . $dir ], $input, $output );
 
 		if ( ! $process->isSuccessful() ) {
@@ -187,13 +186,18 @@ class InstallCommand extends Command {
 		// Check if wp-cli is installed globally.
 		$path = exec( 'which wp' ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_exec
 
+		// To handle an edge case for Alley developers, ignore if it is from broadway.
+		if ( $path && str_contains( $path, 'broadway' ) ) {
+			$path = null;
+		}
+
 		if ( $path ) {
 			return $path;
 		}
 
 		// Fallback to the one installed with the package.
 		if ( file_exists( __DIR__ . '/../bin/wp-cli.phar' ) ) {
-			return '"' . PHP_BINARY . '" ' . __DIR__ . '/../bin/wp-cli.phar';
+			return '"' . PHP_BINARY . '" -d memory_limit=512M ' . __DIR__ . '/../bin/wp-cli.phar';
 		}
 
 		return 'wp';
