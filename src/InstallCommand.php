@@ -54,7 +54,7 @@ class InstallCommand extends Command {
 
 		if ( $this->check_if_hiring() ) {
 			$output->write(
-				"Alley is hiring! Apply today at <href=https://alley.co/careers/>https://alley.co/careers/</>. \n\n"
+				"Alley is hiring! Apply today at <href=https://alley.com/careers/>https://alley.com/careers/</>. \n\n"
 			);
 		}
 
@@ -92,6 +92,14 @@ class InstallCommand extends Command {
 				$output->writeln( "Using [<fg=yellow>{$abspath}</fg=yellow>] as the WordPress installation." );
 				return $abspath;
 			}
+		}
+
+		// If the current directory is 'wp-content', use the parent directory.
+		if ( 'wp-content' === basename( $abspath ) && is_dir( dirname( $abspath ) . '/wp-includes' ) ) {
+			$abspath = dirname( $abspath );
+
+			$output->writeln( "Using [<fg=yellow>{$abspath}</fg=yellow>] as the WordPress installation." );
+			return $abspath;
 		}
 
 		// Check if we are inside of the default Homestead WordPress environment.
