@@ -165,50 +165,20 @@ class InstallCommand extends Command {
 	protected function install_wordpress( string $dir, InputInterface $input, OutputInterface $output ): bool {
 		$output->writeln( "Installing WordPress at <fg=yellow>{$dir}</>...\n\n" );
 
-		$process = $this->run_commands( [ $this->find_wp_cli() . ' core download --force --path=' . $dir ], $input, $output );
+		$commands = [
+			'mkdir /tmp/mantle-installer || true',
+			'curl --clobber -o /tmp/mantle-installer/wordpress-latest.tar.gz https://wordpress.org/latest.tar.gz',
+			"mkdir -p {$dir} || true",
+			"tar --strip-components=1 -zxmf /tmp/mantle-installer/wordpress-latest.tar.gz -C {$dir}",
+		];
+
+		$process = $this->run_commands( $commands, $input, $output );
 
 		if ( ! $process->isSuccessful() ) {
 			throw new RuntimeException( 'Error downloading WordPress: ' . $process->getExitCodeText() );
 		}
 
 		return true;
-	}
-
-	/**
-	 * Find wp-cli.
-	 *
-	 * @return string
-	 */
-	protected function find_wp_cli(): string {
-		// Check if the wp-cli path was set in an environment variable.
-		if ( $wp_cli = getenv( 'WP_CLI_PATH' ) ) {
-			return $wp_cli;
-		}
-
-		$path = getcwd() . '/wp-cli.phar';
-
-		if ( file_exists( $path ) ) {
-			return '"' . PHP_BINARY . '" ' . $path;
-		}
-
-		// Check if wp-cli is installed globally.
-		$path = exec( 'which wp' ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_exec
-
-		// To handle an edge case for Alley developers, ignore if it is from broadway.
-		if ( $path && str_contains( $path, 'broadway' ) ) {
-			$path = null;
-		}
-
-		if ( $path ) {
-			return $path;
-		}
-
-		// Fallback to the one installed with the package.
-		if ( file_exists( __DIR__ . '/../bin/wp-cli.phar' ) ) {
-			return '"' . PHP_BINARY . '" -d memory_limit=512M ' . __DIR__ . '/../bin/wp-cli.phar';
-		}
-
-		return 'wp';
 	}
 
 	/**
