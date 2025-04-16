@@ -47,7 +47,7 @@ class InstallCommandTest extends TestCase {
 		$this->assertEquals( 0, $status_code );
 		$this->assertDirectoryExists( "{$output}/new-site" );
 		$this->assertFileExists( "{$output}/new-site/wp-settings.php" );
-		$this->assertFileExists( "{$output}/new-site/wp-content/plugins/new-site/mantle.php" );
+		$this->assertFileExists( "{$output}/new-site/wp-content/plugins/new-site/new-site.php" );
 		$this->assertFileExists( "{$output}/new-site/wp-content/mu-plugins/new-site-loader.php" );
 	}
 

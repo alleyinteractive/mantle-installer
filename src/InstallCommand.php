@@ -277,7 +277,7 @@ class InstallCommand extends Command {
 		$composer = $this->find_composer();
 		$commands = [
 			$composer . " create-project alleyinteractive/mantle{$version} {$mantle_dir} --remove-vcs --stability=dev --no-interaction --no-scripts",
-			"rm -rf {$mantle_dir}/docs",
+			"mv {$mantle_dir}/mantle.php {$mantle_dir}/{$name}.php",
 		];
 
 		// Setup the application for local development on the framework.
@@ -367,9 +367,9 @@ class InstallCommand extends Command {
 */
 
 if ( function_exists( 'wpcom_vip_load_plugin' ) ) {
-	wpcom_vip_load_plugin( '$plugin_name/mantle.php' );
+	wpcom_vip_load_plugin( '$plugin_name/$plugin_name.php' );
 } else {
-	require_once WP_CONTENT_DIR . '/plugins/$plugin_name/mantle.php';
+	require_once WP_CONTENT_DIR . '/plugins/$plugin_name/$plugin_name.php';
 }
 EOT;
 	}
