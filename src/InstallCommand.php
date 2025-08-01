@@ -172,7 +172,7 @@ class InstallCommand extends Command {
 
 		$commands = [
 			'mkdir /tmp/mantle-installer || true',
-			'curl --clobber -o /tmp/mantle-installer/wordpress-latest.tar.gz https://wordpress.org/latest.tar.gz',
+			'curl -o /tmp/mantle-installer/wordpress-latest.tar.gz https://wordpress.org/latest.tar.gz',
 			"mkdir -p {$dir} || true",
 			"tar --strip-components=1 -zxmf /tmp/mantle-installer/wordpress-latest.tar.gz -C {$dir}",
 		];
