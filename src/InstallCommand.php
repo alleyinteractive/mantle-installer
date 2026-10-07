@@ -9,6 +9,10 @@ declare(strict_types=1);
 
 namespace Mantle\Installer;
 
+use Laravel\Prompts\ConfirmPrompt;
+use Laravel\Prompts\Prompt;
+use Laravel\Prompts\Support\Logger;
+use Laravel\Prompts\TextPrompt;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -16,7 +20,16 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Console\Terminal;
 use Symfony\Component\Process\Process;
+
+use function Laravel\Prompts\confirm;
+use function Laravel\Prompts\error;
+use function Laravel\Prompts\info;
+use function Laravel\Prompts\note;
+use function Laravel\Prompts\outro;
+use function Laravel\Prompts\task;
+use function Laravel\Prompts\text;
 
 /**
  * Installation Command for Mantle
@@ -51,9 +64,18 @@ class InstallCommand extends Command {
 	 * @param OutputInterface $output Output interface.
 	 */
 	protected function initialize( InputInterface $input, OutputInterface $output ): void {
-		if ( defined( 'STDIN' ) && ! stream_isatty( STDIN ) ) {
+		if ( ! $this->stdin_is_terminal() ) {
 			$input->setInteractive( false );
 		}
+	}
+
+	/**
+	 * Check if STDIN is a terminal.
+	 *
+	 * @return bool
+	 */
+	protected function stdin_is_terminal(): bool {
+		return defined( 'STDIN' ) && stream_isatty( STDIN );
 	}
 
 	/**
@@ -64,7 +86,7 @@ class InstallCommand extends Command {
 	 * @return int
 	 */
 	protected function execute( InputInterface $input, OutputInterface $output ): int {
-		$this->style = new SymfonyStyle( $input, $output );
+		$this->configure_prompts( $input, $output );
 
 		$output->write(
 			PHP_EOL .
@@ -79,16 +101,14 @@ class InstallCommand extends Command {
 
 		$name = $this->get_name( $input );
 
-		if ( null !== $name && ! preg_match( '/^[A-Za-z0-9][A-Za-z0-9._-]*$/', $name ) ) {
-			$this->style->error( "Invalid name: [{$name}] Use only letters, numbers, dots, dashes, and underscores." );
+		if ( null !== $name && $name_error = $this->validate_name( $name ) ) {
+			error( "Invalid name [{$name}]. {$name_error}" );
 
 			return static::FAILURE;
 		}
 
 		if ( $this->check_if_hiring() ) {
-			$output->write(
-				"Alley is hiring! Apply today at <href=https://alley.com/careers/>https://alley.com/careers/</>. \n\n"
-			);
+			note( 'Alley is hiring! Apply today at https://alley.com/careers/' );
 		}
 
 		// Determine if we're in a WordPress project already.
@@ -99,6 +119,53 @@ class InstallCommand extends Command {
 		}
 
 		return $this->install_mantle( $wordpress_root, $input, $output );
+	}
+
+	/**
+	 * Point Laravel Prompts at the command's input and output.
+	 *
+	 * @param InputInterface  $input Input interface.
+	 * @param OutputInterface $output Output interface.
+	 */
+	protected function configure_prompts( InputInterface $input, OutputInterface $output ): void {
+		$this->style = new SymfonyStyle( $input, $output );
+
+		Prompt::setOutput( $output->isDecorated() ? $output : new PlainOutput( $output ) );
+		Prompt::interactive( $input->isInteractive() );
+
+		// Laravel Prompts can't read keystrokes on Windows outside of WSL.
+		Prompt::fallbackWhen( 'Windows' === PHP_OS_FAMILY );
+
+		ConfirmPrompt::fallbackUsing( fn ( ConfirmPrompt $prompt ) => $this->style->confirm( $prompt->label, $prompt->default ) );
+		TextPrompt::fallbackUsing(
+			fn ( TextPrompt $prompt ) => $this->style->ask(
+				$prompt->label,
+				$prompt->default ?: null,
+				function ( $value ) use ( $prompt ) {
+					$message = is_callable( $prompt->validate ) ? ( $prompt->validate )( (string) $value ) : null;
+
+					if ( $message ) {
+						throw new RuntimeException( $message );
+					}
+
+					return $value;
+				}
+			)
+		);
+	}
+
+	/**
+	 * Validate the name of the Mantle plugin.
+	 *
+	 * @param string $name Name to validate.
+	 * @return string|null Error message, or null if the name is valid.
+	 */
+	public function validate_name( string $name ): ?string {
+		if ( ! preg_match( '/^[A-Za-z0-9][A-Za-z0-9._-]*$/', $name ) ) {
+			return 'Use only letters, numbers, dots, dashes, and underscores.';
+		}
+
+		return null;
 	}
 
 	/**
@@ -130,7 +197,7 @@ class InstallCommand extends Command {
 
 			$this->validate_wordpress_root( $wordpress_path );
 
-			$output->writeln( "Using [<fg=yellow>{$wordpress_path}</fg=yellow>] as the WordPress installation." );
+			info( "Using {$wordpress_path} as the WordPress installation." );
 			return $wordpress_path;
 		}
 
@@ -143,7 +210,7 @@ class InstallCommand extends Command {
 			$root = rtrim( (string) preg_replace( '#/wp-content/.*$#', '/', $abspath ), '/' );
 
 			if ( is_dir( $root ) && file_exists( $root . '/wp-settings.php' ) ) {
-				$output->writeln( "Using [<fg=yellow>{$root}</fg=yellow>] as the WordPress installation." );
+				info( "Using {$root} as the WordPress installation." );
 				return $root;
 			}
 		}
@@ -152,7 +219,7 @@ class InstallCommand extends Command {
 		if ( 'wp-content' === basename( $abspath ) && file_exists( dirname( $abspath ) . '/wp-settings.php' ) ) {
 			$abspath = dirname( $abspath );
 
-			$output->writeln( "Using [<fg=yellow>{$abspath}</fg=yellow>] as the WordPress installation." );
+			info( "Using {$abspath} as the WordPress installation." );
 			return $abspath;
 		}
 
@@ -162,26 +229,39 @@ class InstallCommand extends Command {
 			is_dir( $abspath . '/wp/' ) &&
 			file_exists( $abspath . '/wp/wp-settings.php' )
 		) {
-			$output->writeln( "Using [<fg=yellow>{$abspath}/wp/</fg=yellow>] as the WordPress installation, and [<fg=yellow>{$abspath}/wp-content/</fg=yellow>] as the WP Content directory." );
+			info( "Using {$abspath}/wp/ as the WordPress installation and {$abspath}/wp-content/ as the content directory." );
 			return $abspath;
 		}
 
 		// Bail if the folder already exists.
 		if ( $name && is_dir( $abspath ) && ! $input->getOption( 'force' ) ) {
-			$this->style->error( "Directory already exists: [{$abspath}] Use --force to override." );
+			error( "Directory already exists: {$abspath}. Use --force to install into it anyway." );
 			return null;
 		}
 
 		// Ask the user if we should be installing if not already specified.
 		if (
 			$input->getOption( 'install' )
-			|| $this->style->confirm( "Would you like to install WordPress at [<fg=yellow>{$abspath}</fg=yellow>]", true )
+			|| confirm( "No WordPress installation found. Install WordPress at {$abspath}?" )
 		) {
 			$this->install_wordpress( $abspath, $input, $output );
 			return $abspath;
 		}
 
-		return $this->style->ask( 'Please specify your WordPress installation:', null, [ $this, 'validate_wordpress_root' ] );
+		return text(
+			label: 'Where is your WordPress installation?',
+			placeholder: '/path/to/wordpress',
+			required: true,
+			validate: function ( string $dir ): ?string {
+				try {
+					$this->validate_wordpress_root( $dir );
+				} catch ( RuntimeException $e ) {
+					return $e->getMessage();
+				}
+
+				return null;
+			},
+		);
 	}
 
 	/**
@@ -215,8 +295,6 @@ class InstallCommand extends Command {
 	 * @throws RuntimeException Thrown on error.
 	 */
 	protected function install_wordpress( string $dir, InputInterface $input, OutputInterface $output ): bool {
-		$output->writeln( "Installing WordPress at <fg=yellow>{$dir}</>...\n\n" );
-
 		$archive = tempnam( sys_get_temp_dir(), 'mantle-wordpress-' ); // phpcs:ignore
 
 		if ( false === $archive ) {
@@ -230,7 +308,7 @@ class InstallCommand extends Command {
 		];
 
 		try {
-			$process = $this->run_commands( $commands, $input, $output );
+			$process = $this->run_commands( $commands, "Installing WordPress at {$dir}", $input, $output );
 		} finally {
 			@unlink( $archive ); // phpcs:ignore
 		}
@@ -265,25 +343,63 @@ class InstallCommand extends Command {
 	/**
 	 * Run a set of shell commands.
 	 *
+	 * Shows a spinner with the latest output in a terminal, and streams the full
+	 * output when the output isn't a terminal or is verbose.
+	 *
 	 * @param string[]        $commands Commands to run.
+	 * @param string          $label Description of what the commands do.
 	 * @param InputInterface  $input Input interface.
 	 * @param OutputInterface $output Output interface.
 	 * @return Process
 	 *
 	 * @throws RuntimeException Thrown on error.
 	 */
-	protected function run_commands( array $commands, InputInterface $input, OutputInterface $output ): Process {
+	protected function run_commands( array $commands, string $label, InputInterface $input, OutputInterface $output ): Process {
 		$process = Process::fromShellCommandline( implode( ' && ', $commands ), null, null, null, null );
 
-		$output->write( "\n\n" );
+		if ( ! $output->isDecorated() || $output->isVerbose() ) {
+			$output->writeln( "{$label}..." );
 
-		$process->run(
-			function ( $type, $line ) use ( $output ) {
-				$output->write( '    ' . $line );
-			}
+			$process->run(
+				function ( $type, $line ) use ( $output ) {
+					$output->write( '    ' . $line );
+				}
+			);
+
+			$output->writeln( '' );
+
+			return $process;
+		}
+
+		$log   = '';
+		$width = max( 20, ( new Terminal() )->getWidth() - 6 );
+
+		task(
+			$label,
+			function ( Logger $logger ) use ( $process, $label, $width, &$log ) {
+				$process->run(
+					function ( $type, $chunk ) use ( $logger, $width, &$log ) {
+						$log .= $chunk;
+
+						foreach ( preg_split( '/\R/', $chunk ) ?: [] as $line ) {
+							if ( '' !== trim( $line ) ) {
+								// Prompts miscounts lines when a word is wider than the terminal, leaving stray spinner frames behind.
+								$logger->line( mb_strimwidth( $line, 0, $width, '…' ) );
+							}
+						}
+					}
+				);
+
+				if ( ! $process->isSuccessful() ) {
+					$logger->error( $label );
+				}
+			},
+			keepSummary: true,
 		);
 
-		$output->write( "\n\n" );
+		if ( ! $process->isSuccessful() ) {
+			$output->write( $log );
+		}
 
 		return $process;
 	}
@@ -302,16 +418,14 @@ class InstallCommand extends Command {
 		$name       = $this->get_name( $input );
 		$dev        = (bool) $input->getOption( 'dev' );
 
-		if ( ! $name ) {
-			$name = 'mantle';
-
-			// Confirm the argument 'name' if not passed before assuming a default.
-			if ( ! $this->style->confirm( "No name was passed to the installer. Do you want to install Mantle at <fg=yellow>{$wp_content}/plugins/{$name}</>", true ) ) {
-				$this->style->error( 'Mantle installation aborted. To specify a name, pass it as an argument: `mantle new my-plugin`.' );
-
-				return self::FAILURE;
-			}
-		}
+		$name ??= text(
+			label: 'What should the Mantle plugin be called?',
+			placeholder: 'mantle',
+			default: 'mantle',
+			required: true,
+			validate: fn ( string $value ): ?string => $this->validate_name( $value ),
+			hint: "It will be installed in {$wp_content}/plugins/",
+		);
 
 		$mantle_dir    = "{$wp_content}/plugins/{$name}";
 		$framework_dir = "{$wp_content}/plugins/{$name}-framework";
@@ -321,14 +435,14 @@ class InstallCommand extends Command {
 
 		// Check if Mantle exists at the current location.
 		if ( is_dir( $mantle_dir ) && file_exists( $mantle_dir . '/composer.json' ) ) {
-			$this->style->error( "Mantle is already installed: [{$mantle_dir}]" );
+			error( "Mantle is already installed: {$mantle_dir}" );
 
 			return self::FAILURE;
 		}
 
 		// Check if the directory is empty.
 		if ( is_dir( $mantle_dir ) && count( (array) scandir( $mantle_dir ) ) > 2 ) {
-			$this->style->error( "Directory is not empty: [{$mantle_dir}]" );
+			error( "Directory is not empty: {$mantle_dir}" );
 
 			return self::FAILURE;
 		}
@@ -341,7 +455,7 @@ class InstallCommand extends Command {
 			$mu_plugin  = "{$mu_plugins}/{$name}-loader.php";
 
 			if ( file_exists( $mu_plugin ) ) {
-				$this->style->error( "Mantle MU Plugin loader already exists: [{$mu_plugin}]" );
+				error( "Mantle must-use plugin loader already exists: {$mu_plugin}" );
 
 				return self::FAILURE;
 			}
@@ -362,7 +476,7 @@ class InstallCommand extends Command {
 		// Setup the application for local development on the framework.
 		if ( $dev ) {
 			if ( is_dir( $framework_dir ) && file_exists( "{$framework_dir}/composer.json" ) ) {
-				$this->style->error( "Mantle Framework is already installed: [{$framework_dir}]" );
+				error( "Mantle Framework is already installed: {$framework_dir}" );
 
 				return self::FAILURE;
 			}
@@ -392,20 +506,18 @@ class InstallCommand extends Command {
 			];
 		}
 
-		$output->writeln( 'Installing Mantle...' );
-
-		$process = $this->run_commands( $commands, $input, $output );
+		$process = $this->run_commands( $commands, $dev ? 'Installing Mantle and Mantle Framework' : 'Installing Mantle', $input, $output );
 
 		if ( ! $process->isSuccessful() ) {
-			$this->style->error( 'Error installing Mantle: ' . $process->getExitCodeText() );
+			error( 'Error installing Mantle: ' . $process->getExitCodeText() );
 
 			return self::FAILURE;
 		}
 
-		$output->writeln( "Mantle installed successfully at <fg=yellow>{$mantle_dir}</>." );
+		info( "Mantle installed at {$mantle_dir}" );
 
 		if ( $dev ) {
-			$output->writeln( "Mantle Framework installed successfully at <fg=yellow>{$framework_dir}</>." );
+			info( "Mantle Framework installed at {$framework_dir}" );
 		}
 
 		// Add Mantle as a must-use plugin.
@@ -417,13 +529,15 @@ class InstallCommand extends Command {
 			}
 
 			if ( false === file_put_contents( $mu_plugin, trim( $this->get_mu_plugin_loader( "{$name}/{$plugin_file}" ) ) ) ) { // phpcs:ignore
-				$this->style->error( "Error writing must-use plugin loader: [{$mu_plugin}]" );
+				error( "Error writing must-use plugin loader: {$mu_plugin}" );
 
 				return self::FAILURE;
 			}
 
-			$output->writeln( "Must-use plugin created: <fg=yellow>{$mu_plugin}</>" );
+			info( "Must-use plugin loader created at {$mu_plugin}" );
 		}
+
+		outro( 'Mantle is ready. Read the documentation at https://mantle.alley.co/' );
 
 		return self::SUCCESS;
 	}

@@ -19,13 +19,17 @@ class FakeInstallCommand extends InstallCommand {
 
 	public bool $succeed = true;
 
-	protected function run_commands( array $commands, InputInterface $input, OutputInterface $output ): Process {
+	protected function run_commands( array $commands, string $label, InputInterface $input, OutputInterface $output ): Process {
 		$this->commands = [ ...$this->commands, ...$commands ];
 
 		$process = new Process( [ $this->succeed ? 'true' : 'false' ] );
 		$process->run();
 
 		return $process;
+	}
+
+	protected function stdin_is_terminal(): bool {
+		return true;
 	}
 
 	protected function check_if_hiring(): bool {

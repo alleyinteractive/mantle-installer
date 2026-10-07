@@ -1,7 +1,10 @@
 <?php
 namespace Mantle\Installer\Tests;
 
+use Laravel\Prompts\Key;
+use Laravel\Prompts\Prompt;
 use Mantle\Installer\InstallCommand;
+use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -11,6 +14,8 @@ use Symfony\Component\Console\Tester\CommandTester;
 use Throwable;
 
 class InstallCommandTest extends TestCase {
+	use MockeryPHPUnitIntegration;
+
 	protected string $sandbox;
 
 	protected string $original_cwd;
@@ -222,6 +227,48 @@ class InstallCommandTest extends TestCase {
 		$this->assertSame( [], $this->command->commands );
 	}
 
+	public function test_plain_output_has_no_escape_codes(): void {
+		$site   = $this->make_wordpress( 'site' );
+		$tester = $this->get_tester( $this->command );
+
+		$this->assertSame( Command::SUCCESS, $tester->execute( [ '--wordpress-path' => $site ], [ 'interactive' => false ] ) );
+		$this->assertStringContainsString( 'Mantle is ready.', $tester->getDisplay() );
+		$this->assertStringNotContainsString( "\e[", $tester->getDisplay() );
+	}
+
+	public function test_prompt_for_name(): void {
+		$site = $this->make_wordpress( 'site' );
+
+		Prompt::fake( [ ...array_fill( 0, 6, Key::BACKSPACE ), 'a', 'p', 'p', Key::ENTER ] );
+
+		$this->assertSame( Command::SUCCESS, $this->run_interactive( [ '--wordpress-path' => $site ] ) );
+		$this->assertCommandRan( "'{$site}/wp-content/plugins/app' --remove-vcs" );
+	}
+
+	public function test_prompt_for_name_rejects_invalid_names(): void {
+		$site = $this->make_wordpress( 'site' );
+
+		Prompt::fake( [ ' ', Key::ENTER, Key::BACKSPACE, Key::ENTER ] );
+
+		$tester = $this->get_tester( $this->command );
+
+		$this->assertSame( Command::SUCCESS, $tester->execute( [ '--wordpress-path' => $site ] ) );
+		$this->assertStringContainsString( 'Use only letters, numbers, dots, dashes, and underscores.', $tester->getDisplay() );
+		$this->assertCommandRan( "'{$site}/wp-content/plugins/mantle' --remove-vcs" );
+	}
+
+	public function test_prompt_for_wordpress_path_when_install_declined(): void {
+		$site = $this->make_wordpress( 'site' );
+
+		chdir( "{$this->sandbox}" );
+
+		Prompt::fake( [ Key::RIGHT, Key::ENTER, ...str_split( $site ), Key::ENTER, Key::ENTER ] );
+
+		$this->assertSame( Command::SUCCESS, $this->run_interactive() );
+		$this->assertNoCommandContains( 'curl' );
+		$this->assertCommandRan( "'{$site}/wp-content/plugins/mantle' --remove-vcs" );
+	}
+
 	protected function get_tester( InstallCommand $command ): CommandTester {
 		$app = new Application( 'Mantle Installer' );
 		$app->add( $command );
@@ -236,6 +283,15 @@ class InstallCommandTest extends TestCase {
 	 */
 	protected function run_installer( array $input = [] ): int {
 		return $this->get_tester( $this->command )->execute( $input, [ 'interactive' => false ] );
+	}
+
+	/**
+	 * Run the fake installer with prompts answered by Prompt::fake().
+	 *
+	 * @param array<string, mixed> $input Command input.
+	 */
+	protected function run_interactive( array $input = [] ): int {
+		return $this->get_tester( $this->command )->execute( $input );
 	}
 
 	protected function make_wordpress( string $name ): string {
