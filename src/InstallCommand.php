@@ -37,7 +37,20 @@ class InstallCommand extends Command {
 			->addOption( 'install', 'i', InputOption::VALUE_NONE, 'Install WordPress in the current location if it doesn\'t exist.' )
 			->addOption( 'no-must-use', 'no-mu', InputOption::VALUE_OPTIONAL, 'Don\'t load Mantle as a must-use plugin.', false )
 			->addOption( 'dev', 'd', InputOption::VALUE_NONE, 'Setup mantle for development on the framework.' )
-			->addOption( 'mantle-version', null, InputOption::VALUE_OPTIONAL, 'Version of alleyinteractive/mantle to install.' );
+			->addOption( 'mantle-version', null, InputOption::VALUE_OPTIONAL, 'Version of alleyinteractive/mantle to install.' )
+			->addOption( 'wordpress-path', 'w', InputOption::VALUE_REQUIRED, 'Path to an existing WordPress installation to install Mantle into.' );
+	}
+
+	/**
+	 * Disable prompts when STDIN is not a terminal so scripts and agents never hang waiting for input.
+	 *
+	 * @param InputInterface  $input Input interface.
+	 * @param OutputInterface $output Output interface.
+	 */
+	protected function initialize( InputInterface $input, OutputInterface $output ): void {
+		if ( defined( 'STDIN' ) && ! stream_isatty( STDIN ) ) {
+			$input->setInteractive( false );
+		}
 	}
 
 	/**
@@ -87,6 +100,17 @@ class InstallCommand extends Command {
 	 * @throws RuntimeException Thrown on error.
 	 */
 	protected function get_wordpress_root( InputInterface $input, OutputInterface $output ): ?string {
+		$wordpress_path = $input->getOption( 'wordpress-path' );
+
+		if ( $wordpress_path ) {
+			$wordpress_path = rtrim( $wordpress_path, '/' );
+
+			$this->validate_wordpress_root( $wordpress_path );
+
+			$output->writeln( "Using [<fg=yellow>{$wordpress_path}</fg=yellow>] as the WordPress installation." );
+			return $wordpress_path;
+		}
+
 		$cwd     = getcwd();
 		$name    = $input->getArgument( 'name' )[0] ?? null;
 		$abspath = $name && '.' !== $name ? $cwd . '/' . $name : $cwd;
@@ -134,27 +158,27 @@ class InstallCommand extends Command {
 			return $abspath;
 		}
 
-		return $this->style->ask(
-			'Please specify your WordPress installation:',
-			null,
-			/**
-			 * Callback function that handles validating the manually defined WordPress installation directory.
-			 *
-			 * @param string $dir The full path to the WordPress directory, as defined by the user.
-			 * @return string $dir The path as passed by the user, after passing validation.
-			 */
-			function ( $dir ) {
-				if ( ! is_dir( $dir ) ) {
-					throw new RuntimeException( 'Directory not found.' );
-				}
+		return $this->style->ask( 'Please specify your WordPress installation:', null, [ $this, 'validate_wordpress_root' ] );
+	}
 
-				if ( ! file_exists( $dir . '/wp-settings.php' ) ) {
-					throw new RuntimeException( 'Invalid WordPress installation.' );
-				}
+	/**
+	 * Validate that a directory is a WordPress installation.
+	 *
+	 * @param string|null $dir Path to the WordPress installation.
+	 * @return string
+	 *
+	 * @throws RuntimeException Thrown if the directory is not a WordPress installation.
+	 */
+	public function validate_wordpress_root( ?string $dir ): string {
+		if ( ! $dir || ! is_dir( $dir ) ) {
+			throw new RuntimeException( "Directory not found: [{$dir}]" );
+		}
 
-				return $dir;
-			}
-		);
+		if ( ! file_exists( $dir . '/wp-settings.php' ) ) {
+			throw new RuntimeException( "Invalid WordPress installation: [{$dir}]" );
+		}
+
+		return $dir;
 	}
 
 	/**
@@ -291,13 +315,13 @@ class InstallCommand extends Command {
 			$commands = [
 				"git clone https://github.com/alleyinteractive/mantle-framework.git {$framework_dir}",
 				"cd {$framework_dir} && git remote set-url origin git@github.com:alleyinteractive/mantle-framework.git",
-				"cd {$framework_dir} && composer install",
+				"cd {$framework_dir} && composer install --no-interaction",
 				"git clone https://github.com/alleyinteractive/mantle.git {$mantle_dir}",
 				"cd {$mantle_dir} && git remote set-url origin git@github.com:alleyinteractive/mantle.git",
 				"cd {$mantle_dir} && composer config repositories.mantle-framework '{\"type\": \"path\", \"url\": \"../{$name}-framework\", \"options\": {\"symlink\": true}}' --file composer.json",
 				// Update Mantle to accept any version of these dependencies.
-				"cd {$mantle_dir} && composer require alleyinteractive/mantle-framework:\"*\" alleyinteractive/composer-wordpress-autoloader:\"*\" --no-update --no-scripts",
-				"cd {$mantle_dir} && composer install --no-scripts",
+				"cd {$mantle_dir} && composer require alleyinteractive/mantle-framework:\"*\" alleyinteractive/composer-wordpress-autoloader:\"*\" --no-update --no-scripts --no-interaction",
+				"cd {$mantle_dir} && composer install --no-scripts --no-interaction",
 			];
 		}
 
