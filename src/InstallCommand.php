@@ -27,7 +27,6 @@ use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\note;
-use function Laravel\Prompts\outro;
 use function Laravel\Prompts\task;
 use function Laravel\Prompts\text;
 
@@ -514,12 +513,6 @@ class InstallCommand extends Command {
 			return self::FAILURE;
 		}
 
-		info( "Mantle installed at {$mantle_dir}" );
-
-		if ( $dev ) {
-			info( "Mantle Framework installed at {$framework_dir}" );
-		}
-
 		// Add Mantle as a must-use plugin.
 		if ( $mu_plugin ) {
 			$mu_plugins = dirname( $mu_plugin );
@@ -533,13 +526,37 @@ class InstallCommand extends Command {
 
 				return self::FAILURE;
 			}
-
-			info( "Must-use plugin loader created at {$mu_plugin}" );
 		}
 
-		outro( 'Mantle is ready. Read the documentation at https://mantle.alley.co/' );
+		$this->render_summary(
+			$output,
+			array_filter(
+				[
+					'Plugin'    => $mantle_dir,
+					'Framework' => $dev ? $framework_dir : null,
+					'Loader'    => $mu_plugin,
+					'Docs'      => 'https://mantle.alley.com/',
+				]
+			)
+		);
 
 		return self::SUCCESS;
+	}
+
+	/**
+	 * Render the summary shown after a successful install.
+	 *
+	 * @param OutputInterface       $output Output interface.
+	 * @param array<string, string> $rows Labels and values to list.
+	 */
+	protected function render_summary( OutputInterface $output, array $rows ): void {
+		$output->writeln( [ '', ' <fg=green>✔</> <options=bold>Mantle is ready</>', '' ] );
+
+		foreach ( $rows as $label => $value ) {
+			$output->writeln( sprintf( '   <fg=gray>%-10s</>%s', $label, $value ) );
+		}
+
+		$output->writeln( '' );
 	}
 
 	/**

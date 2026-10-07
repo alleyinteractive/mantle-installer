@@ -1,6 +1,6 @@
 # Mantle Installer
 
-Documentation can be found inside the [Mantle documentation](https://mantle.alley.co/).
+Documentation can be found inside the [Mantle documentation](https://mantle.alley.com/).
 
 [![Testing Suite](https://github.com/alleyinteractive/mantle-installer/actions/workflows/tests.yml/badge.svg)](https://github.com/alleyinteractive/mantle-installer/actions/workflows/tests.yml)
 

@@ -232,7 +232,8 @@ class InstallCommandTest extends TestCase {
 		$tester = $this->get_tester( $this->command );
 
 		$this->assertSame( Command::SUCCESS, $tester->execute( [ '--wordpress-path' => $site ], [ 'interactive' => false ] ) );
-		$this->assertStringContainsString( 'Mantle is ready.', $tester->getDisplay() );
+		$this->assertStringContainsString( 'Mantle is ready', $tester->getDisplay() );
+		$this->assertStringContainsString( "Loader    {$site}/wp-content/mu-plugins/mantle-loader.php", $tester->getDisplay() );
 		$this->assertStringNotContainsString( "\e[", $tester->getDisplay() );
 	}
 
