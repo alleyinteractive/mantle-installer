@@ -5,10 +5,13 @@
  * @package Mantle
  */
 
+declare(strict_types=1);
+
 namespace Mantle\Installer;
 
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -29,15 +32,15 @@ class InstallCommand extends Command {
 	/**
 	 * Configure the install command.
 	 */
-	protected function configure() {
+	protected function configure(): void {
 		$this->setName( 'new' )
 			->setDescription( 'Create a new Mantle application' )
-			->addArgument( 'name', InputOption::VALUE_OPTIONAL, 'Name of the folder to install WordPress in, optional.', null )
+			->addArgument( 'name', InputArgument::OPTIONAL, 'Name of the folder to install WordPress in and of the Mantle plugin, optional.' )
 			->addOption( 'force', 'f', InputOption::VALUE_NONE, 'Install even if the directory already exists' )
 			->addOption( 'install', 'i', InputOption::VALUE_NONE, 'Install WordPress in the current location if it doesn\'t exist.' )
-			->addOption( 'no-must-use', 'no-mu', InputOption::VALUE_OPTIONAL, 'Don\'t load Mantle as a must-use plugin.', false )
+			->addOption( 'no-must-use', null, InputOption::VALUE_NONE, 'Don\'t load Mantle as a must-use plugin.' )
 			->addOption( 'dev', 'd', InputOption::VALUE_NONE, 'Setup mantle for development on the framework.' )
-			->addOption( 'mantle-version', null, InputOption::VALUE_OPTIONAL, 'Version of alleyinteractive/mantle to install.' )
+			->addOption( 'mantle-version', null, InputOption::VALUE_REQUIRED, 'Version of alleyinteractive/mantle to install.' )
 			->addOption( 'wordpress-path', 'w', InputOption::VALUE_REQUIRED, 'Path to an existing WordPress installation to install Mantle into.' );
 	}
 
@@ -74,6 +77,14 @@ class InstallCommand extends Command {
  |_|  |_|\__,_|_| |_|\__|_|\___|</> \n\n"
 		);
 
+		$name = $this->get_name( $input );
+
+		if ( null !== $name && ! preg_match( '/^[A-Za-z0-9][A-Za-z0-9._-]*$/', $name ) ) {
+			$this->style->error( "Invalid name: [{$name}] Use only letters, numbers, dots, dashes, and underscores." );
+
+			return static::FAILURE;
+		}
+
 		if ( $this->check_if_hiring() ) {
 			$output->write(
 				"Alley is hiring! Apply today at <href=https://alley.com/careers/>https://alley.com/careers/</>. \n\n"
@@ -88,6 +99,18 @@ class InstallCommand extends Command {
 		}
 
 		return $this->install_mantle( $wordpress_root, $input, $output );
+	}
+
+	/**
+	 * Get the name passed to the installer, treating "." as no name.
+	 *
+	 * @param InputInterface $input Input interface.
+	 * @return string|null
+	 */
+	protected function get_name( InputInterface $input ): ?string {
+		$name = $input->getArgument( 'name' );
+
+		return $name && '.' !== $name ? $name : null;
 	}
 
 	/**
@@ -111,22 +134,22 @@ class InstallCommand extends Command {
 			return $wordpress_path;
 		}
 
-		$cwd     = getcwd();
-		$name    = $input->getArgument( 'name' )[0] ?? null;
-		$abspath = $name && '.' !== $name ? $cwd . '/' . $name : $cwd;
+		$cwd     = (string) getcwd();
+		$name    = $this->get_name( $input );
+		$abspath = $name ? $cwd . '/' . $name : $cwd;
 
 		// Check if 'wp-content' is in the current path.
-		if ( false !== strpos( $abspath, '/wp-content/' ) ) {
-			$abspath = rtrim( preg_replace( '#/wp-content/.*$#', '/', $abspath ), '/' );
+		if ( str_contains( $abspath, '/wp-content/' ) ) {
+			$root = rtrim( (string) preg_replace( '#/wp-content/.*$#', '/', $abspath ), '/' );
 
-			if ( is_dir( $abspath ) && file_exists( $abspath . '/wp-settings.php' ) ) {
-				$output->writeln( "Using [<fg=yellow>{$abspath}</fg=yellow>] as the WordPress installation." );
-				return $abspath;
+			if ( is_dir( $root ) && file_exists( $root . '/wp-settings.php' ) ) {
+				$output->writeln( "Using [<fg=yellow>{$root}</fg=yellow>] as the WordPress installation." );
+				return $root;
 			}
 		}
 
 		// If the current directory is 'wp-content', use the parent directory.
-		if ( 'wp-content' === basename( $abspath ) && is_dir( dirname( $abspath ) . '/wp-includes' ) ) {
+		if ( 'wp-content' === basename( $abspath ) && file_exists( dirname( $abspath ) . '/wp-settings.php' ) ) {
 			$abspath = dirname( $abspath );
 
 			$output->writeln( "Using [<fg=yellow>{$abspath}</fg=yellow>] as the WordPress installation." );
@@ -144,7 +167,7 @@ class InstallCommand extends Command {
 		}
 
 		// Bail if the folder already exists.
-		if ( $name && is_dir( $name ) && ! $input->getOption( 'force' ) ) {
+		if ( $name && is_dir( $abspath ) && ! $input->getOption( 'force' ) ) {
 			$this->style->error( "Directory already exists: [{$abspath}] Use --force to override." );
 			return null;
 		}
@@ -194,14 +217,23 @@ class InstallCommand extends Command {
 	protected function install_wordpress( string $dir, InputInterface $input, OutputInterface $output ): bool {
 		$output->writeln( "Installing WordPress at <fg=yellow>{$dir}</>...\n\n" );
 
+		$archive = tempnam( sys_get_temp_dir(), 'mantle-wordpress-' ); // phpcs:ignore
+
+		if ( false === $archive ) {
+			throw new RuntimeException( 'Unable to create a temporary file for the WordPress download.' );
+		}
+
 		$commands = [
-			'mkdir /tmp/mantle-installer || true',
-			'curl -o /tmp/mantle-installer/wordpress-latest.tar.gz https://wordpress.org/latest.tar.gz',
-			"mkdir -p {$dir} || true",
-			"tar --strip-components=1 -zxmf /tmp/mantle-installer/wordpress-latest.tar.gz -C {$dir}",
+			'curl -fsSL -o ' . escapeshellarg( $archive ) . ' https://wordpress.org/latest.tar.gz',
+			'mkdir -p ' . escapeshellarg( $dir ),
+			'tar --strip-components=1 -zxmf ' . escapeshellarg( $archive ) . ' -C ' . escapeshellarg( $dir ),
 		];
 
-		$process = $this->run_commands( $commands, $input, $output );
+		try {
+			$process = $this->run_commands( $commands, $input, $output );
+		} finally {
+			@unlink( $archive ); // phpcs:ignore
+		}
 
 		if ( ! $process->isSuccessful() ) {
 			throw new RuntimeException( 'Error downloading WordPress: ' . $process->getExitCodeText() );
@@ -224,7 +256,7 @@ class InstallCommand extends Command {
 		$composer_path = getcwd() . '/composer.phar';
 
 		if ( file_exists( $composer_path ) ) {
-				return '"' . PHP_BINARY . '" ' . $composer_path;
+			return escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( $composer_path );
 		}
 
 		return 'composer';
@@ -267,14 +299,15 @@ class InstallCommand extends Command {
 	 */
 	protected function install_mantle( string $dir, InputInterface $input, OutputInterface $output ): int {
 		$wp_content = $dir . '/wp-content';
-		$name       = $input->getArgument( 'name' )[0] ?? null;
+		$name       = $this->get_name( $input );
+		$dev        = (bool) $input->getOption( 'dev' );
 
 		if ( ! $name ) {
 			$name = 'mantle';
 
 			// Confirm the argument 'name' if not passed before assuming a default.
-			if ( ! $this->style->confirm( "No named was passed to the installer. Do you want to install Mantle at <fg=yellow>{$wp_content}/plugins/{$name}</>", true ) ) {
-				$this->style->error( 'Mantle installation aborted. To specific a name, pass it as an argument: `mantle new my-plugin`.' );
+			if ( ! $this->style->confirm( "No name was passed to the installer. Do you want to install Mantle at <fg=yellow>{$wp_content}/plugins/{$name}</>", true ) ) {
+				$this->style->error( 'Mantle installation aborted. To specify a name, pass it as an argument: `mantle new my-plugin`.' );
 
 				return self::FAILURE;
 			}
@@ -282,6 +315,9 @@ class InstallCommand extends Command {
 
 		$mantle_dir    = "{$wp_content}/plugins/{$name}";
 		$framework_dir = "{$wp_content}/plugins/{$name}-framework";
+
+		// The dev install is a git checkout of Mantle, so its main file keeps its original name.
+		$plugin_file = $dev ? 'mantle.php' : "{$name}.php";
 
 		// Check if Mantle exists at the current location.
 		if ( is_dir( $mantle_dir ) && file_exists( $mantle_dir . '/composer.json' ) ) {
@@ -291,37 +327,68 @@ class InstallCommand extends Command {
 		}
 
 		// Check if the directory is empty.
-		if ( is_dir( $mantle_dir ) && count( scandir( $mantle_dir ) ) > 2 ) {
+		if ( is_dir( $mantle_dir ) && count( (array) scandir( $mantle_dir ) ) > 2 ) {
 			$this->style->error( "Directory is not empty: [{$mantle_dir}]" );
 
 			return self::FAILURE;
 		}
 
-		$version  = $input->getOption( 'mantle-version' ) ? ':' . $input->getOption( 'mantle-version' ) : '';
-		$composer = $this->find_composer();
-		$commands = [
-			$composer . " create-project alleyinteractive/mantle{$version} {$mantle_dir} --remove-vcs --stability=dev --no-interaction --no-scripts",
-			"mv {$mantle_dir}/mantle.php {$mantle_dir}/{$name}.php",
+		$mu_plugin = null;
+
+		if ( ! $input->getOption( 'no-must-use' ) ) {
+			// Check for client-mu-plugins and use it if it exists.
+			$mu_plugins = is_dir( "{$wp_content}/client-mu-plugins" ) ? "{$wp_content}/client-mu-plugins" : "{$wp_content}/mu-plugins";
+			$mu_plugin  = "{$mu_plugins}/{$name}-loader.php";
+
+			if ( file_exists( $mu_plugin ) ) {
+				$this->style->error( "Mantle MU Plugin loader already exists: [{$mu_plugin}]" );
+
+				return self::FAILURE;
+			}
+		}
+
+		$composer       = $this->find_composer();
+		$version        = $input->getOption( 'mantle-version' ) ? ':' . $input->getOption( 'mantle-version' ) : '';
+		$mantle_dir_arg = escapeshellarg( $mantle_dir );
+		$commands       = [
+			$composer . ' create-project ' . escapeshellarg( "alleyinteractive/mantle{$version}" ) . " {$mantle_dir_arg} --remove-vcs --stability=dev --no-interaction --no-scripts",
 		];
 
+		// GNU mv fails when the source and destination are the same file.
+		if ( 'mantle.php' !== $plugin_file ) {
+			$commands[] = "mv {$mantle_dir_arg}/mantle.php " . escapeshellarg( "{$mantle_dir}/{$plugin_file}" );
+		}
+
 		// Setup the application for local development on the framework.
-		if ( $input->getOption( 'dev' ) ) {
+		if ( $dev ) {
 			if ( is_dir( $framework_dir ) && file_exists( "{$framework_dir}/composer.json" ) ) {
-				$this->style->error( "Mantle Framework is already installed: [{$framework_dir}'" );
+				$this->style->error( "Mantle Framework is already installed: [{$framework_dir}]" );
 
 				return self::FAILURE;
 			}
 
+			$framework_dir_arg = escapeshellarg( $framework_dir );
+			$repository        = escapeshellarg(
+				(string) json_encode(
+					[
+						'type'    => 'path',
+						'url'     => "../{$name}-framework",
+						'options' => [ 'symlink' => true ],
+					],
+					JSON_UNESCAPED_SLASHES
+				)
+			);
+
 			$commands = [
-				"git clone https://github.com/alleyinteractive/mantle-framework.git {$framework_dir}",
-				"cd {$framework_dir} && git remote set-url origin git@github.com:alleyinteractive/mantle-framework.git",
-				"cd {$framework_dir} && composer install --no-interaction",
-				"git clone https://github.com/alleyinteractive/mantle.git {$mantle_dir}",
-				"cd {$mantle_dir} && git remote set-url origin git@github.com:alleyinteractive/mantle.git",
-				"cd {$mantle_dir} && composer config repositories.mantle-framework '{\"type\": \"path\", \"url\": \"../{$name}-framework\", \"options\": {\"symlink\": true}}' --file composer.json",
+				"git clone https://github.com/alleyinteractive/mantle-framework.git {$framework_dir_arg}",
+				"cd {$framework_dir_arg} && git remote set-url origin git@github.com:alleyinteractive/mantle-framework.git",
+				"cd {$framework_dir_arg} && {$composer} install --no-interaction",
+				"git clone https://github.com/alleyinteractive/mantle.git {$mantle_dir_arg}",
+				"cd {$mantle_dir_arg} && git remote set-url origin git@github.com:alleyinteractive/mantle.git",
+				"cd {$mantle_dir_arg} && {$composer} config repositories.mantle-framework {$repository} --file composer.json",
 				// Update Mantle to accept any version of these dependencies.
-				"cd {$mantle_dir} && composer require alleyinteractive/mantle-framework:\"*\" alleyinteractive/composer-wordpress-autoloader:\"*\" --no-update --no-scripts --no-interaction",
-				"cd {$mantle_dir} && composer install --no-scripts --no-interaction",
+				"cd {$mantle_dir_arg} && {$composer} require alleyinteractive/mantle-framework:\"*\" alleyinteractive/composer-wordpress-autoloader:\"*\" --no-update --no-scripts --no-interaction",
+				"cd {$mantle_dir_arg} && {$composer} install --no-scripts --no-interaction",
 			];
 		}
 
@@ -337,30 +404,19 @@ class InstallCommand extends Command {
 
 		$output->writeln( "Mantle installed successfully at <fg=yellow>{$mantle_dir}</>." );
 
-		if ( $input->getOption( 'dev' ) ) {
+		if ( $dev ) {
 			$output->writeln( "Mantle Framework installed successfully at <fg=yellow>{$framework_dir}</>." );
 		}
 
 		// Add Mantle as a must-use plugin.
-		if ( false === $input->getOption( 'no-must-use' ) ) {
-			$mu_plugins = "{$wp_content}/mu-plugins";
+		if ( $mu_plugin ) {
+			$mu_plugins = dirname( $mu_plugin );
 
-			// Check for client-mu-plugins and use it if it exists.
-			if ( is_dir( "{$wp_content}/client-mu-plugins" ) ) {
-				$mu_plugins = "{$wp_content}/client-mu-plugins";
-			} elseif ( ! is_dir( $mu_plugins ) ) {
-				mkdir( $mu_plugins ); // phpcs:ignore
+			if ( ! is_dir( $mu_plugins ) ) {
+				mkdir( $mu_plugins, 0777, true ); // phpcs:ignore
 			}
 
-			$mu_plugin = "{$mu_plugins}/{$name}-loader.php";
-
-			if ( file_exists( $mu_plugin ) ) {
-				$this->style->error( "Mantle MU Plugin loader already exists: [{$mu_plugin}]" );
-
-				return self::FAILURE;
-			}
-
-			if ( false === file_put_contents( $mu_plugin, trim( $this->get_mu_plugin_loader( $name ) ) ) ) { // phpcs:ignore
+			if ( false === file_put_contents( $mu_plugin, trim( $this->get_mu_plugin_loader( "{$name}/{$plugin_file}" ) ) ) ) { // phpcs:ignore
 				$this->style->error( "Error writing must-use plugin loader: [{$mu_plugin}]" );
 
 				return self::FAILURE;
@@ -375,10 +431,10 @@ class InstallCommand extends Command {
 	/**
 	 * Get the Must-use plugin loader.
 	 *
-	 * @param string $plugin_name Name of the plugin WordPress was installed at.
+	 * @param string $plugin_file Path to the plugin's main file, relative to the plugins directory.
 	 * @return string
 	 */
-	protected function get_mu_plugin_loader( string $plugin_name ): string {
+	protected function get_mu_plugin_loader( string $plugin_file ): string {
 		return <<<EOT
 <?php
 /*
@@ -391,9 +447,9 @@ class InstallCommand extends Command {
 */
 
 if ( function_exists( 'wpcom_vip_load_plugin' ) ) {
-	wpcom_vip_load_plugin( '$plugin_name/$plugin_name.php' );
+	wpcom_vip_load_plugin( '$plugin_file' );
 } else {
-	require_once WP_CONTENT_DIR . '/plugins/$plugin_name/$plugin_name.php';
+	require_once WP_CONTENT_DIR . '/plugins/$plugin_file';
 }
 EOT;
 	}
@@ -410,14 +466,13 @@ EOT;
 			curl_setopt( $ch, CURLOPT_RETURNTRANSFER, 1 );
 			curl_setopt( $ch, CURLOPT_TIMEOUT, 3 );
 
-			$feed = json_decode( curl_exec( $ch ), true );
-
-			curl_close( $ch );
+			$response = curl_exec( $ch );
+			$feed     = is_string( $response ) ? json_decode( $response, true ) : null;
 		} catch ( \Throwable $e ) {
 			return false;
 		}
 
-		if ( empty( $feed ) ) {
+		if ( empty( $feed ) || ! is_array( $feed ) ) {
 			return false;
 		}
 
@@ -425,7 +480,7 @@ EOT;
 		foreach ( $feed as $posting ) {
 			$title = strtolower( $posting['title']['rendered'] ?? '' );
 
-			if ( false !== strpos( $title, 'developer' ) ) {
+			if ( str_contains( $title, 'developer' ) ) {
 				return true;
 			}
 		}

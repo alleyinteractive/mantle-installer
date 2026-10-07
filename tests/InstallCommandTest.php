@@ -2,143 +2,270 @@
 namespace Mantle\Installer\Tests;
 
 use Mantle\Installer\InstallCommand;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Throwable;
 
 class InstallCommandTest extends TestCase {
+	protected string $sandbox;
+
+	protected string $original_cwd;
+
+	protected FakeInstallCommand $command;
+
 	protected function setUp(): void {
 		parent::setUp();
 
-		$output = __DIR__ . '/output';
+		$this->original_cwd = (string) getcwd();
+		$this->sandbox      = __DIR__ . '/output/sandbox';
+		$this->command      = new FakeInstallCommand();
 
-		if ( is_dir( $output . '/new-site' ) ) {
-			exec( 'rm -rf ' . $output . '/new-site' );
-		}
-
-		if ( is_dir( $output . '/new-site-dev' ) ) {
-			exec( 'rm -rf ' . $output . '/new-site-dev' );
-		}
-
-		if ( is_dir( $output . '/existing-site' ) ) {
-			exec( 'rm -rf ' . $output . '/existing-site' );
-		}
+		exec( 'rm -rf ' . escapeshellarg( $this->sandbox ) );
+		mkdir( $this->sandbox, 0777, true );
+		chdir( $this->sandbox );
 	}
 
-	public function test_install_wordpress(): void {
-		$output = __DIR__ . '/output';
+	protected function tearDown(): void {
+		chdir( $this->original_cwd );
+		putenv( 'COMPOSER_PATH' );
 
-		chdir( $output );
+		parent::tearDown();
+	}
 
-		$tester = $this->get_tester();
+	#[Group( 'network' )]
+	public function test_install_wordpress_and_mantle(): void {
+		$site   = "{$this->sandbox}/new-site";
+		$tester = $this->get_tester( new InstallCommand() );
 
 		try {
-			$status_code = $tester->execute(
-				[
-					'name' => [ 'new-site' ],
-				],
-				[
-					'i',
-					'f',
-				]
-			);
+			$status_code = $tester->execute( [ 'name' => 'new-site', '--install' => true ], [ 'interactive' => false ] );
 		} catch ( Throwable $e ) {
 			echo $tester->getDisplay( true );
 			throw $e;
 		}
 
-		$this->assertEquals( 0, $status_code );
-		$this->assertDirectoryExists( "{$output}/new-site" );
-		$this->assertFileExists( "{$output}/new-site/wp-settings.php" );
-		$this->assertFileExists( "{$output}/new-site/wp-content/plugins/new-site/new-site.php" );
-		$this->assertFileExists( "{$output}/new-site/wp-content/mu-plugins/new-site-loader.php" );
+		$this->assertSame( Command::SUCCESS, $status_code );
+		$this->assertFileExists( "{$site}/wp-settings.php" );
+		$this->assertFileExists( "{$site}/wp-content/plugins/new-site/new-site.php" );
+		$this->assertLoaderRequires( "{$site}/wp-content/mu-plugins/new-site-loader.php", 'new-site/new-site.php' );
 	}
 
-	public function test_install_wordpress_dev(): void {
-		$output = __DIR__ . '/output';
+	public function test_install_into_wordpress_path(): void {
+		$site = $this->make_wordpress( 'existing-site' );
 
-		chdir( $output );
-
-		$tester = $this->get_tester();
-
-		try {
-			$status_code = $tester->execute(
-				[
-					'name' => [ 'new-site-dev' ],
-					'--install' => true,
-					'--force' => true,
-					'--dev' => true,
-				],
-				[
-					'i',
-					'f',
-					'd',
-				]
-			);
-		} catch ( Throwable $e ) {
-			echo $tester->getDisplay( true );
-			throw $e;
-		}
-
-		$this->assertEquals( 0, $status_code );
-		$this->assertDirectoryExists( "{$output}/new-site-dev" );
-		$this->assertFileExists( "{$output}/new-site-dev/wp-settings.php" );
-		$this->assertFileExists( "{$output}/new-site-dev/wp-content/plugins/new-site-dev/mantle.php" );
-		$this->assertFileExists( "{$output}/new-site-dev/wp-content/plugins/new-site-dev-framework/composer.json" );
-		$this->assertFileExists( "{$output}/new-site-dev/wp-content/mu-plugins/new-site-dev-loader.php" );
-	}
-
-	public function test_install_into_existing_wordpress_path_without_prompts(): void {
-		$output = __DIR__ . '/output';
-		$site   = "{$output}/existing-site";
-
-		mkdir( "{$site}/wp-content/plugins", 0777, true );
-		touch( "{$site}/wp-settings.php" );
-
-		chdir( $output );
-
-		$tester = $this->get_tester();
-
-		try {
-			$status_code = $tester->execute(
-				[
-					'name'             => [ 'my-plugin' ],
-					'--wordpress-path' => $site,
-				],
-				[
-					'interactive' => false,
-				]
-			);
-		} catch ( Throwable $e ) {
-			echo $tester->getDisplay( true );
-			throw $e;
-		}
-
-		$this->assertEquals( 0, $status_code );
-		$this->assertFileExists( "{$site}/wp-content/plugins/my-plugin/my-plugin.php" );
-		$this->assertFileExists( "{$site}/wp-content/mu-plugins/my-plugin-loader.php" );
+		$this->assertSame( Command::SUCCESS, $this->run_installer( [ 'name' => 'my-plugin', '--wordpress-path' => $site ] ) );
+		$this->assertCommandRan( "create-project 'alleyinteractive/mantle' '{$site}/wp-content/plugins/my-plugin'" );
+		$this->assertCommandRan( "mv '{$site}/wp-content/plugins/my-plugin'/mantle.php '{$site}/wp-content/plugins/my-plugin/my-plugin.php'" );
+		$this->assertLoaderRequires( "{$site}/wp-content/mu-plugins/my-plugin-loader.php", 'my-plugin/my-plugin.php' );
 	}
 
 	public function test_invalid_wordpress_path(): void {
 		$this->expectException( RuntimeException::class );
 		$this->expectExceptionMessage( 'Invalid WordPress installation' );
 
-		$this->get_tester()->execute(
-			[
-				'--wordpress-path' => __DIR__,
-			],
-			[
-				'interactive' => false,
-			]
-		);
+		$this->run_installer( [ '--wordpress-path' => __DIR__ ] );
 	}
 
-	protected function get_tester(): CommandTester {
+	public function test_detect_wordpress_from_inside_wp_content(): void {
+		$site = $this->make_wordpress( 'site' );
+
+		chdir( "{$site}/wp-content/plugins" );
+
+		$this->assertSame( Command::SUCCESS, $this->run_installer() );
+		$this->assertCommandRan( "'{$site}/wp-content/plugins/mantle' --remove-vcs" );
+		$this->assertNoCommandContains( 'mv ' );
+		$this->assertLoaderRequires( "{$site}/wp-content/mu-plugins/mantle-loader.php", 'mantle/mantle.php' );
+	}
+
+	public function test_detect_wordpress_from_wp_content(): void {
+		$site = $this->make_wordpress( 'site' );
+
+		chdir( "{$site}/wp-content" );
+
+		$this->assertSame( Command::SUCCESS, $this->run_installer( [ 'name' => 'app' ] ) );
+		$this->assertCommandRan( "'{$site}/wp-content/plugins/app' --remove-vcs" );
+	}
+
+	public function test_detect_homestead_layout(): void {
+		$site = "{$this->sandbox}/site";
+
+		mkdir( "{$site}/wp", 0777, true );
+		mkdir( "{$site}/wp-content", 0777, true );
+		touch( "{$site}/wp/wp-settings.php" );
+
+		$this->assertSame( Command::SUCCESS, $this->run_installer( [ 'name' => 'site' ] ) );
+		$this->assertCommandRan( "'{$site}/wp-content/plugins/site' --remove-vcs" );
+	}
+
+	public function test_dot_name_uses_the_default_name(): void {
+		$site = $this->make_wordpress( 'site' );
+
+		chdir( "{$site}/wp-content" );
+
+		$this->assertSame( Command::SUCCESS, $this->run_installer( [ 'name' => '.' ] ) );
+		$this->assertCommandRan( "'{$site}/wp-content/plugins/mantle' --remove-vcs" );
+	}
+
+	public function test_install_wordpress_when_not_found(): void {
+		$site = "{$this->sandbox}/new-site";
+
+		$this->assertSame( Command::SUCCESS, $this->run_installer( [ 'name' => 'new-site', '--install' => true ] ) );
+		$this->assertCommandRan( 'curl -fsSL -o ' );
+		$this->assertCommandRan( "-C '{$site}'" );
+		$this->assertCommandRan( "'{$site}/wp-content/plugins/new-site' --remove-vcs" );
+		$this->assertFileExists( "{$site}/wp-content/mu-plugins/new-site-loader.php" );
+	}
+
+	public function test_refuse_existing_directory_without_force(): void {
+		mkdir( "{$this->sandbox}/new-site" );
+
+		$this->assertSame( Command::FAILURE, $this->run_installer( [ 'name' => 'new-site', '--install' => true ] ) );
+		$this->assertSame( [], $this->command->commands );
+	}
+
+	public function test_refuse_existing_mantle_install(): void {
+		$site = $this->make_wordpress( 'site' );
+
+		mkdir( "{$site}/wp-content/plugins/mantle" );
+		touch( "{$site}/wp-content/plugins/mantle/composer.json" );
+
+		$this->assertSame( Command::FAILURE, $this->run_installer( [ '--wordpress-path' => $site ] ) );
+		$this->assertSame( [], $this->command->commands );
+	}
+
+	public function test_refuse_non_empty_plugin_directory(): void {
+		$site = $this->make_wordpress( 'site' );
+
+		mkdir( "{$site}/wp-content/plugins/mantle" );
+		touch( "{$site}/wp-content/plugins/mantle/readme.txt" );
+
+		$this->assertSame( Command::FAILURE, $this->run_installer( [ '--wordpress-path' => $site ] ) );
+		$this->assertSame( [], $this->command->commands );
+	}
+
+	public function test_refuse_existing_loader_before_installing(): void {
+		$site = $this->make_wordpress( 'site' );
+
+		mkdir( "{$site}/wp-content/mu-plugins" );
+		touch( "{$site}/wp-content/mu-plugins/mantle-loader.php" );
+
+		$this->assertSame( Command::FAILURE, $this->run_installer( [ '--wordpress-path' => $site ] ) );
+		$this->assertSame( [], $this->command->commands );
+	}
+
+	public function test_prefer_client_mu_plugins(): void {
+		$site = $this->make_wordpress( 'site' );
+
+		mkdir( "{$site}/wp-content/client-mu-plugins" );
+
+		$this->assertSame( Command::SUCCESS, $this->run_installer( [ '--wordpress-path' => $site ] ) );
+		$this->assertFileExists( "{$site}/wp-content/client-mu-plugins/mantle-loader.php" );
+		$this->assertDirectoryDoesNotExist( "{$site}/wp-content/mu-plugins" );
+	}
+
+	public function test_no_must_use_skips_the_loader(): void {
+		$site = $this->make_wordpress( 'site' );
+
+		$this->assertSame( Command::SUCCESS, $this->run_installer( [ '--wordpress-path' => $site, '--no-must-use' => true ] ) );
+		$this->assertDirectoryDoesNotExist( "{$site}/wp-content/mu-plugins" );
+	}
+
+	public function test_mantle_version(): void {
+		$site = $this->make_wordpress( 'site' );
+
+		$this->assertSame( Command::SUCCESS, $this->run_installer( [ '--wordpress-path' => $site, '--mantle-version' => '^1.0' ] ) );
+		$this->assertCommandRan( "create-project 'alleyinteractive/mantle:^1.0'" );
+	}
+
+	public function test_failed_install_returns_failure(): void {
+		$site = $this->make_wordpress( 'site' );
+
+		$this->command->succeed = false;
+
+		$this->assertSame( Command::FAILURE, $this->run_installer( [ '--wordpress-path' => $site ] ) );
+		$this->assertFileDoesNotExist( "{$site}/wp-content/mu-plugins/mantle-loader.php" );
+	}
+
+	public function test_dev_loader_requires_mantle_php(): void {
+		$site = $this->make_wordpress( 'site' );
+
+		$this->assertSame( Command::SUCCESS, $this->run_installer( [ 'name' => 'my-plugin', '--wordpress-path' => $site, '--dev' => true ] ) );
+		$this->assertCommandRan( "git clone https://github.com/alleyinteractive/mantle.git '{$site}/wp-content/plugins/my-plugin'" );
+		$this->assertCommandRan( "config repositories.mantle-framework '{\"type\":\"path\",\"url\":\"../my-plugin-framework\",\"options\":{\"symlink\":true}}'" );
+		$this->assertNoCommandContains( 'mv ' );
+		$this->assertLoaderRequires( "{$site}/wp-content/mu-plugins/my-plugin-loader.php", 'my-plugin/mantle.php' );
+	}
+
+	public function test_dev_uses_composer_path(): void {
+		$site = $this->make_wordpress( 'site' );
+
+		putenv( 'COMPOSER_PATH=/opt/bin/composer' );
+
+		$this->assertSame( Command::SUCCESS, $this->run_installer( [ '--wordpress-path' => $site, '--dev' => true ] ) );
+		$this->assertCommandRan( "cd '{$site}/wp-content/plugins/mantle-framework' && /opt/bin/composer install" );
+		$this->assertNoCommandContains( '&& composer ' );
+	}
+
+	public function test_quote_paths_with_spaces(): void {
+		$site = $this->make_wordpress( 'my site' );
+
+		$this->assertSame( Command::SUCCESS, $this->run_installer( [ '--wordpress-path' => $site ] ) );
+		$this->assertCommandRan( "'{$site}/wp-content/plugins/mantle' --remove-vcs" );
+	}
+
+	public function test_reject_invalid_name(): void {
+		$this->assertSame( Command::FAILURE, $this->run_installer( [ 'name' => 'app;touch pwned', '--install' => true ] ) );
+		$this->assertSame( [], $this->command->commands );
+	}
+
+	protected function get_tester( InstallCommand $command ): CommandTester {
 		$app = new Application( 'Mantle Installer' );
-		$app->add( new InstallCommand() );
+		$app->add( $command );
 
 		return new CommandTester( $app->find( 'new' ) );
+	}
+
+	/**
+	 * Run the fake installer with prompts disabled.
+	 *
+	 * @param array<string, mixed> $input Command input.
+	 */
+	protected function run_installer( array $input = [] ): int {
+		return $this->get_tester( $this->command )->execute( $input, [ 'interactive' => false ] );
+	}
+
+	protected function make_wordpress( string $name ): string {
+		$site = "{$this->sandbox}/{$name}";
+
+		mkdir( "{$site}/wp-content/plugins", 0777, true );
+		touch( "{$site}/wp-settings.php" );
+
+		return $site;
+	}
+
+	protected function assertCommandRan( string $needle ): void {
+		foreach ( $this->command->commands as $command ) {
+			if ( str_contains( $command, $needle ) ) {
+				$this->addToAssertionCount( 1 );
+				return;
+			}
+		}
+
+		$this->fail( "No command contains [{$needle}]. Commands run:\n" . implode( "\n", $this->command->commands ) );
+	}
+
+	protected function assertNoCommandContains( string $needle ): void {
+		foreach ( $this->command->commands as $command ) {
+			$this->assertStringNotContainsString( $needle, $command );
+		}
+	}
+
+	protected function assertLoaderRequires( string $loader, string $plugin_file ): void {
+		$this->assertFileExists( $loader );
+		$this->assertStringContainsString( "require_once WP_CONTENT_DIR . '/plugins/{$plugin_file}';", (string) file_get_contents( $loader ) );
 	}
 }
