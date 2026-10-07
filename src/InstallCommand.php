@@ -15,6 +15,7 @@ use Laravel\Prompts\Support\Logger;
 use Laravel\Prompts\TextPrompt;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -553,6 +554,12 @@ class InstallCommand extends Command {
 		$output->writeln( [ '', ' <fg=green>✔</> <options=bold>Mantle is ready</>', '' ] );
 
 		foreach ( $rows as $label => $value ) {
+			$value = OutputFormatter::escape( $value );
+
+			if ( str_starts_with( $value, 'https://' ) ) {
+				$value = "<href={$value}>{$value}</>";
+			}
+
 			$output->writeln( sprintf( '   <fg=gray>%-10s</>%s', $label, $value ) );
 		}
 
